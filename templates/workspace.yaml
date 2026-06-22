@@ -1,0 +1,7 @@
+id: EPIC-KEY
+services:
+  - service-a
+  - service-b
+base_branch: main
+create_branches: true
+editor: cursor

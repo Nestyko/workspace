@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "ProductAgent": {
+      "properties": {
+        "instructions": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "instructions",
+        "name"
+      ],
+      "type": "object"
+    },
+    "ProductKnowledgeSource": {
+      "properties": {
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "project": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "provider": {
+          "type": "string"
+        },
+        "space": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "type": "object"
+    },
+    "ProductRoutingRule": {
+      "properties": {
+        "inspect_services": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "when": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "inspect_services",
+        "when"
+      ],
+      "type": "object"
+    },
+    "ProductServices": {
+      "properties": {
+        "primary": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "related": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "primary",
+        "related"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "agent": {
+      "$ref": "#/definitions/ProductAgent"
+    },
+    "description": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "knowledge_sources": {
+      "items": {
+        "$ref": "#/definitions/ProductKnowledgeSource"
+      },
+      "type": "array"
+    },
+    "name": {
+      "type": "string"
+    },
+    "routing_rules": {
+      "items": {
+        "$ref": "#/definitions/ProductRoutingRule"
+      },
+      "type": "array"
+    },
+    "services": {
+      "$ref": "#/definitions/ProductServices"
+    }
+  },
+  "required": [
+    "agent",
+    "description",
+    "id",
+    "kind",
+    "knowledge_sources",
+    "name",
+    "routing_rules",
+    "services"
+  ],
+  "title": "ProductCatalog",
+  "type": "object"
+}

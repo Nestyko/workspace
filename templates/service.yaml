@@ -1,0 +1,39 @@
+id: service-name
+name: Service Display Name
+kind: service
+description: >
+  Detailed description of what this service does and its main responsibilities.
+
+team: platform
+
+products:
+  - cosell
+
+repo:
+  provider: github
+  owner: example-org
+  name: service-name
+  url: git@github.com:example-org/service-name.git
+  default_branch: main
+
+owns:
+  - List of features or components owned by this service
+
+likely_relevant_when:
+  - Conditions or keywords when this service is likely involved
+
+commands:
+  install: npm install
+  test: npm test
+  lint: npm run lint
+
+issue_tracking:
+  provider: jira
+  project: PLATFORM
+  component: Service Component
+
+docs:
+  - type: readme
+    path: README.md
+  - type: architecture
+    path: docs/architecture.md

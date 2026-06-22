@@ -1,0 +1,9 @@
+id: team-id
+name: Team Name
+kind: team
+description: >
+  Description of the team responsibilities.
+lead: lead-username
+members:
+  - member-1
+  - member-2

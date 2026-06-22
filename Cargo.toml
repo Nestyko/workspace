@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ws-cli",
+    "crates/ws-core",
+    "crates/ws-config",
+    "crates/ws-catalog",
+    "crates/ws-workspace",
+    "crates/ws-providers",
+    "crates/ws-provider-jira",
+    "crates/ws-provider-github-gh",
+    "crates/ws-editors",
+    "crates/ws-ai-docs"
+]
+
+[workspace.dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+schemars = { version = "0.8", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+thiserror = "1"
+miette = { version = "7", features = ["fancy"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+inquire = "0.7"
+duct = "0.13"
+directories = "5"
+chrono = { version = "0.4", features = ["serde"] }
+async-trait = "0.1"
+ws-core = { path = "crates/ws-core" }
+ws-config = { path = "crates/ws-config" }
+ws-catalog = { path = "crates/ws-catalog" }
+ws-workspace = { path = "crates/ws-workspace" }
+ws-providers = { path = "crates/ws-providers" }
+ws-provider-jira = { path = "crates/ws-provider-jira" }
+ws-provider-github-gh = { path = "crates/ws-provider-github-gh" }
+ws-editors = { path = "crates/ws-editors" }
+ws-ai-docs = { path = "crates/ws-ai-docs" }

@@ -1,0 +1,29 @@
+id: product-id
+name: Product Name
+kind: product
+description: >
+  Overall description of the product area.
+
+agent:
+  name: Product Agent Name
+  instructions: >
+    Custom instructions for the product agent to understand domain routing rules.
+
+knowledge_sources:
+  - provider: confluence
+    space: PRODUCTSPACE
+    label: space-label
+  - provider: jira
+    project: PRODUCTPROJECT
+
+services:
+  primary:
+    - service-a
+    - service-b
+  related:
+    - service-c
+
+routing_rules:
+  - when: feature matches keyword or scenario
+    inspect_services:
+      - service-a

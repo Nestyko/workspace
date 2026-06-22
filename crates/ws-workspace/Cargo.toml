@@ -1,0 +1,20 @@
+[package]
+name = "ws-workspace"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+schemars = { workspace = true }
+thiserror = { workspace = true }
+miette = { workspace = true }
+async-trait = { workspace = true }
+duct = { workspace = true }
+tracing = { workspace = true }
+ws-core = { workspace = true }
+ws-providers = { workspace = true }
+ws-catalog = { workspace = true }
+
+

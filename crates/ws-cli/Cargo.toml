@@ -1,0 +1,26 @@
+[package]
+name = "ws-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+miette = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+inquire = { workspace = true }
+chrono = { workspace = true }
+ws-core = { workspace = true }
+ws-config = { workspace = true }
+ws-catalog = { workspace = true }
+ws-workspace = { workspace = true }
+ws-providers = { workspace = true }
+ws-provider-jira = { workspace = true }
+ws-provider-github-gh = { workspace = true }
+ws-editors = { workspace = true }
+ws-ai-docs = { workspace = true }

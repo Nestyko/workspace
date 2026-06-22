@@ -1,0 +1,18 @@
+# Default AI Workspace CLI Configuration
+
+issue_provider:
+  type: jira
+  base_url: ~
+  default_project: PLATFORM
+
+code_provider:
+  type: github-gh
+  default_owner: ~
+  protocol: ssh
+
+editor:
+  default: cursor
+
+paths:
+  cache_dir: .cache/repos
+  workspaces_dir: workspaces

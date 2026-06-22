@@ -1,0 +1,38 @@
+# Rust build output
+target/
+
+# Local CLI state
+.ws/
+.ws-config.local.yaml
+
+# Repo cache / mirrors
+.cache/
+.cache/**
+
+# Generated per-epic workspaces
+workspaces/
+workspaces/**
+
+# Temp / logs
+tmp/
+logs/
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+

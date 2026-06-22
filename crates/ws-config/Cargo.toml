@@ -1,0 +1,12 @@
+[package]
+name = "ws-config"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+miette = { workspace = true }
+directories = { workspace = true }
+ws-core = { workspace = true }

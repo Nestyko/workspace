@@ -1,0 +1,19 @@
+[package]
+name = "ws-provider-jira"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+miette = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+ws-core = { workspace = true }
+ws-providers = { workspace = true }
+reqwest = { version = "0.11", features = ["json"] }
+base64 = "0.21"
+urlencoding = "2.1"
+
+

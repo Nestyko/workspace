@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "description": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "lead": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "members": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "description",
+    "id",
+    "kind",
+    "members",
+    "name"
+  ],
+  "title": "TeamCatalog",
+  "type": "object"
+}
