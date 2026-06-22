@@ -1,6 +1,9 @@
-# AI Workspace CLI
+# AI Workspace CLI ![Alpha Version](https://img.shields.io/badge/version-alpha-red)
 
 An open-source Rust CLI control plane for managing AI-friendly multi-repository workspaces.
+
+> [!WARNING]
+> This project is currently in **alpha** state. It is under active development, and features may change or break. Use at your own risk.
 
 ## Objective
 
@@ -24,7 +27,7 @@ If you are using an agentic coding assistant (like Claude Code, Cursor, Copilot,
 > [!TIP]
 > **Prompt for AI Agent:**
 > ```text
-> Please build and install the `ws-cli` workspace package so that the `ws` binary is globally available. Ensure Cargo's bin directory is in my PATH, and verify that running `ws --help` outputs the help page successfully.
+> Please clone the repository from https://github.com/Nestyko/workspace.git, build and install the `ws-cli` package so that the `ws` binary is globally available. Ensure Cargo's bin directory is in my PATH, and verify that running `ws --help` outputs the help page successfully.
 > ```
 
 ### 🛠️ Manual Installation
