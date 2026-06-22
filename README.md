@@ -16,6 +16,44 @@ This tool provides a control plane to manage per-epic workspaces across multiple
 
 ---
 
+## Installation
+
+### 🤖 AI Agent Copy-Paste Installation
+If you are using an agentic coding assistant (like Claude Code, Cursor, Copilot, or Antigravity), you can copy and paste the following prompt to let the agent compile, install, and configure the tool for you:
+
+> [!TIP]
+> **Prompt for AI Agent:**
+> ```text
+> Please build and install the `ws-cli` workspace package so that the `ws` binary is globally available. Ensure Cargo's bin directory is in my PATH, and verify that running `ws --help` outputs the help page successfully.
+> ```
+
+### 🛠️ Manual Installation
+To build and install the `ws` binary manually:
+
+1. **Ensure Rust is installed:**
+   Ensure you have Rust and Cargo installed. If not, follow the instructions at [rustup.rs](https://rustup.rs/).
+
+2. **Install the binary:**
+   From the workspace root directory, compile and install the CLI:
+   ```bash
+   cargo install --path crates/ws-cli
+   ```
+   This compiles the `ws-cli` package and installs the executable under the name `ws` into your local Cargo binary directory (typically `~/.cargo/bin`).
+
+3. **Configure your PATH:**
+   Ensure that `~/.cargo/bin` is in your shell's search path. If it isn't, add the following to your profile file (e.g., `~/.zshrc`, `~/.bashrc`, or `~/.profile`):
+   ```bash
+   export PATH="$HOME/.cargo/bin:$PATH"
+   ```
+
+4. **Verify installation:**
+   Run the help command to make sure it is installed and executable:
+   ```bash
+   ws --help
+   ```
+
+---
+
 ## Human CLI Commands
 
 ```bash
