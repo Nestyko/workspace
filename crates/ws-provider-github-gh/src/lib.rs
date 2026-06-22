@@ -14,6 +14,8 @@ use ws_core::providers::CodeProvider;
 pub struct GitHubGhProvider {
     pub default_owner: Option<String>,
     pub protocol: String, // "ssh" or "https"
+    #[cfg(test)]
+    pub mock_runner: Option<std::sync::Arc<dyn Fn(&[&str]) -> Result<String, WorkspaceError> + Send + Sync>>,
 }
 
 impl GitHubGhProvider {
@@ -21,10 +23,17 @@ impl GitHubGhProvider {
         Self {
             default_owner,
             protocol: protocol.unwrap_or_else(|| "ssh".to_string()),
+            #[cfg(test)]
+            mock_runner: None,
         }
     }
 
     fn run_gh(&self, args: &[&str], dir: Option<&Path>) -> Result<String, WorkspaceError> {
+        #[cfg(test)]
+        if let Some(runner) = &self.mock_runner {
+            return runner(args);
+        }
+
         let mut command = cmd("gh", args);
         if let Some(d) = dir {
             command = command.dir(d);
@@ -107,12 +116,15 @@ impl CodeProvider for GitHubGhProvider {
         &self,
         input: ListRecentReposInput,
     ) -> Result<Vec<RepoSummary>, WorkspaceError> {
-        let limit = input.limit.unwrap_or(10).to_string();
+        let limit_val = input.limit.unwrap_or(50);
+        let page_val = input.page.unwrap_or(1);
+        let gh_limit = (limit_val * page_val).to_string();
+
         let mut args = vec![
             "repo",
             "list",
             "--limit",
-            &limit,
+            &gh_limit,
             "--json",
             "name,owner,url,sshUrl,defaultBranchRef,description,updatedAt",
         ];
@@ -126,8 +138,11 @@ impl CodeProvider for GitHubGhProvider {
             WorkspaceError::provider("github-gh", format!("Failed to parse repo list: {}", e))
         })?;
 
+        let skip_count = limit_val * (page_val - 1);
         let summaries = gh_repos
             .into_iter()
+            .skip(skip_count)
+            .take(limit_val)
             .map(|r| RepoSummary {
                 provider: "github".to_string(),
                 owner: r.owner.login.clone(),
@@ -383,5 +398,73 @@ impl CodeProvider for GitHubGhProvider {
             url,
             state: "open".to_string(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ws_core::models::ListRecentReposInput;
+    use std::sync::Arc;
+
+    fn make_mock_repos(count: usize) -> String {
+        let repos: Vec<serde_json::Value> = (1..=count)
+            .map(|i| {
+                serde_json::json!({
+                    "name": format!("repo{}", i),
+                    "owner": { "login": "testowner" },
+                    "url": format!("https://github.com/testowner/repo{}", i),
+                    "sshUrl": format!("git@github.com:testowner/repo{}.git", i),
+                    "defaultBranchRef": { "name": "main" },
+                    "description": format!("Repo {} description", i),
+                    "updatedAt": "2026-06-22T08:00:00Z"
+                })
+            })
+            .collect();
+        serde_json::to_string(&repos).unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_list_recent_repos_defaults_to_50() {
+        let provider = GitHubGhProvider {
+            default_owner: Some("testowner".to_string()),
+            protocol: "ssh".to_string(),
+            mock_runner: Some(Arc::new(|args| {
+                assert_eq!(args[0], "repo");
+                assert_eq!(args[1], "list");
+                assert_eq!(args[2], "--limit");
+                assert_eq!(args[3], "50");
+                Ok(make_mock_repos(50))
+            })),
+        };
+        let res = provider.list_recent_repos(ListRecentReposInput {
+            limit: None,
+            page: None,
+        }).await.unwrap();
+        assert_eq!(res.len(), 50);
+        assert_eq!(res[0].name, "repo1");
+        assert_eq!(res[49].name, "repo50");
+    }
+
+    #[tokio::test]
+    async fn test_list_recent_repos_pagination_page_2() {
+        let provider = GitHubGhProvider {
+            default_owner: Some("testowner".to_string()),
+            protocol: "ssh".to_string(),
+            mock_runner: Some(Arc::new(|args| {
+                assert_eq!(args[0], "repo");
+                assert_eq!(args[1], "list");
+                assert_eq!(args[2], "--limit");
+                assert_eq!(args[3], "20"); // limit 10 * page 2
+                Ok(make_mock_repos(20))
+            })),
+        };
+        let res = provider.list_recent_repos(ListRecentReposInput {
+            limit: Some(10),
+            page: Some(2),
+        }).await.unwrap();
+        assert_eq!(res.len(), 10);
+        assert_eq!(res[0].name, "repo11");
+        assert_eq!(res[9].name, "repo20");
     }
 }

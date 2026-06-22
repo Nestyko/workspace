@@ -14,3 +14,6 @@ duct = { workspace = true }
 tracing = { workspace = true }
 ws-core = { workspace = true }
 ws-providers = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

@@ -103,7 +103,7 @@ enum Commands {
 
 #[derive(clap::Args, Clone, Debug)]
 struct DiscoverArgs {
-    #[arg(long, help = "Limit the number of repositories fetched (default 10)")]
+    #[arg(long, help = "Limit the number of repositories fetched (default 50)")]
     limit: Option<usize>,
 }
 
@@ -468,7 +468,7 @@ docs:
             None,
             HashMap::new(),
         );
-        handle_discover(root, &temp_ctx, Some(10)).await?;
+        handle_discover(root, &temp_ctx, Some(50)).await?;
     }
 
     println!("\nAI Workspace initialized successfully!");
@@ -547,11 +547,12 @@ async fn handle_discover(
         WorkspaceError::Config("No code provider configured for discovery".to_string())
     })?;
 
+    let limit_val = limit.unwrap_or(50);
     let mut page = 1;
     loop {
         println!("Fetching updated repositories (Page {})...", page);
         let repos = code_provider.list_recent_repos(ws_core::models::ListRecentReposInput {
-            limit,
+            limit: Some(limit_val),
             page: Some(page),
         }).await?;
 
@@ -604,7 +605,7 @@ async fn handle_discover(
             }
         }
 
-        let next = Confirm::new("Show next 10 repositories?").with_default(false).prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+        let next = Confirm::new(&format!("Show next {} repositories?", limit_val)).with_default(false).prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
         if !next {
             break;
         }
