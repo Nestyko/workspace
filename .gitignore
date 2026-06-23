@@ -18,6 +18,10 @@ tmp/
 logs/
 *.log
 
+# Product knowledge base — raw sources are immutable, local-only, never committed.
+# The wiki (catalog/knowledge/wiki/) IS version-controlled.
+catalog/knowledge/raw/**
+
 # Secrets
 .env
 .env.*

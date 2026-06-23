@@ -1,0 +1,8 @@
+# Raw sources are immutable, local-only source documents.
+# They are NEVER committed (large, often sensitive, already exist upstream).
+# Ignore everything in this folder except structural keep-files.
+*
+!.gitignore
+!README.md
+!assets/
+!assets/.gitkeep
