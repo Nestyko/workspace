@@ -108,6 +108,39 @@ pub struct ServiceCatalog {
     pub commands: HashMap<String, String>,
     pub issue_tracking: CatalogIssueTracking,
     pub docs: Vec<CatalogDoc>,
+    // Repo-init healthcheck fields (net-new, optional).
+    // #1 Understand-Anything: CI-authored, committed, diff-suppressed knowledge-graph artifact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub understand_anything: Option<UnderstandAnythingConfig>,
+    // #8 Deploy: either a plain command string OR `{skip: true, reason: ...}` for repos
+    // with no deploy target (libraries / CLIs). Envs/when/triggers live in workflows/deploy.md.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deploy: Option<DeployConfig>,
+}
+
+/// Point #1 — Understand-Anything artifact configuration.
+///
+/// When `enabled: true`, `repo.healthcheck` expects a committed `.understand-anything/`
+/// artifact, the canonical `.gitattributes` diff-suppression lines, and the GitHub Action
+/// workflow file that refreshes the artifact on merge to the default branch.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct UnderstandAnythingConfig {
+    pub enabled: bool,
+}
+
+/// Point #8 — Deploy declaration.
+///
+/// A plain command string declares the deploy invocation. `Skip { skip: true, reason }`
+/// is the explicit opt-out for repos with no deploy target (library / CLI).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum DeployConfig {
+    Command(String),
+    Skip {
+        skip: bool,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

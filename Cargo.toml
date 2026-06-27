@@ -10,7 +10,8 @@ members = [
     "crates/ws-provider-jira",
     "crates/ws-provider-github-gh",
     "crates/ws-editors",
-    "crates/ws-ai-docs"
+    "crates/ws-ai-docs",
+    "crates/ws-repo"
 ]
 
 [workspace.dependencies]
@@ -29,6 +30,7 @@ duct = "0.13"
 directories = "5"
 chrono = { version = "0.4", features = ["serde"] }
 async-trait = "0.1"
+libc = "0.2"
 ws-core = { path = "crates/ws-core" }
 ws-config = { path = "crates/ws-config" }
 ws-catalog = { path = "crates/ws-catalog" }
@@ -38,3 +40,4 @@ ws-provider-jira = { path = "crates/ws-provider-jira" }
 ws-provider-github-gh = { path = "crates/ws-provider-github-gh" }
 ws-editors = { path = "crates/ws-editors" }
 ws-ai-docs = { path = "crates/ws-ai-docs" }
+ws-repo = { path = "crates/ws-repo" }

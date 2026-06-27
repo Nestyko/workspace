@@ -26,6 +26,23 @@ commands:
   install: npm install
   test: npm test
   lint: npm run lint
+  # Repo-init healthcheck command declarations (optional but recommended):
+  # dev: npm run dev                # #5 local dev start (long-running)
+  # run: npm start                  # #5 production start (long-running)
+  # verify_run: ./scripts/healthcheck.sh  # #5 probe confirming the service came up
+  # test_integration: npm run test:integration  # #7 optional
+  # agent_verify: ./scripts/verify-change.sh     # #10 per-change gate
+
+# Point #1 — Understand-Anything. Enable once the committed artifact, .gitattributes
+# diff-suppression lines, and the refresh GitHub Action are in place.
+# understand_anything:
+#   enabled: true
+
+# Point #8 — Deploy. Plain command string, or explicit opt-out for repos with no deploy.
+# deploy: npm run deploy
+# deploy:
+#   skip: true
+#   reason: Pure library, no deploy target.
 
 issue_tracking:
   provider: jira
@@ -37,3 +54,6 @@ docs:
     path: README.md
   - type: architecture
     path: docs/architecture.md
+  # Point #3 — per-repo agent file (informational only, never validated).
+  # - type: agent
+  #   path: AGENT.md

@@ -30,7 +30,8 @@ use ws_editors::{
 use ws_catalog::{
     CatalogProductAddCommand, CatalogProductGetCommand, CatalogProductListCommand,
     CatalogServiceAddCommand, CatalogServiceGetCommand, CatalogServiceListCommand,
-    CatalogTeamAddCommand, CatalogTeamGetCommand, CatalogTeamListCommand, CatalogValidateCommand,
+    CatalogServiceUpdateCommand, CatalogTeamAddCommand, CatalogTeamGetCommand,
+    CatalogTeamListCommand, CatalogValidateCommand,
     ContextResolveCommand,
 };
 
@@ -38,6 +39,12 @@ use ws_catalog::{
 use ws_workspace::{
     WorkspaceAddServiceCommand, WorkspaceCreateCommand, WorkspaceGenerateEditorFilesCommand,
     WorkspaceLockCommand, WorkspaceStatusCommand,
+};
+
+// Repo imports
+use ws_repo::{
+    RepoFixLoopPromptCommand, RepoHealthcheckCommand, RepoRunCommand, RepoUnderstandVerifyCommand,
+    RepoVerifyCommand,
 };
 
 // Provider command imports
@@ -49,6 +56,7 @@ use ws_providers::{
     ProviderDocCheckAuthCommand, ProviderDocGetPageCommand,
     ProviderDocCreatePageCommand, ProviderDocUpdatePageCommand,
     ProviderConfigGetInstructionsCommand,
+    ProviderConfigSyncInstructionsCommand,
 };
 
 #[derive(Parser, Clone, Debug)]
@@ -266,6 +274,7 @@ async fn main() -> miette::Result<()> {
     // Catalog commands
     registry.register(CatalogValidateCommand);
     registry.register(CatalogServiceAddCommand);
+    registry.register(CatalogServiceUpdateCommand);
     registry.register(CatalogServiceGetCommand);
     registry.register(CatalogServiceListCommand);
     registry.register(CatalogProductAddCommand);
@@ -292,6 +301,7 @@ async fn main() -> miette::Result<()> {
     registry.register(ProviderDocCreatePageCommand);
     registry.register(ProviderDocUpdatePageCommand);
     registry.register(ProviderConfigGetInstructionsCommand);
+    registry.register(ProviderConfigSyncInstructionsCommand);
     // Workspace commands
     registry.register(WorkspaceCreateCommand);
     registry.register(WorkspaceAddServiceCommand);
@@ -300,6 +310,12 @@ async fn main() -> miette::Result<()> {
     registry.register(WorkspaceGenerateEditorFilesCommand);
     // Editor command
     registry.register(EditorOpenCommand);
+    // Repo commands
+    registry.register(RepoHealthcheckCommand);
+    registry.register(RepoRunCommand);
+    registry.register(RepoVerifyCommand);
+    registry.register(RepoFixLoopPromptCommand);
+    registry.register(RepoUnderstandVerifyCommand);
 
     run_cli(&workspace_root, &config, &ctx, &registry, args.command)
         .await
@@ -599,6 +615,8 @@ async fn handle_discover(
                         r#type: "readme".to_string(),
                         path: "README.md".to_string(),
                     }],
+                    understand_anything: None,
+                    deploy: None,
                 };
                 ws_catalog::add_service(root, &service)?;
                 println!("✓ Added service {} to catalog/services/{}.yaml", repo.name, repo.name);
@@ -672,6 +690,8 @@ async fn handle_add(
                     r#type: "readme".to_string(),
                     path: "README.md".to_string(),
                 }],
+                understand_anything: None,
+                deploy: None,
             };
             ws_catalog::add_service(root, &service)?;
             println!("✓ Added service {} to catalog/services/{}.yaml", details.summary.name, details.summary.name);

@@ -1,12 +1,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use ws_core::error::WorkspaceError;
-use ws_core::models::{KnowledgeCatalog, ProductCatalog, ServiceCatalog, TeamCatalog, ProductKnowledgeSource};
+use ws_core::models::{KnowledgeCatalog, ProductCatalog, ServiceCatalog, TeamCatalog, ProductKnowledgeSource, CatalogDoc, CatalogIssueTracking, DeployConfig, UnderstandAnythingConfig};
 use ws_core::command::AiCommand;
 use ws_core::context::CommandContext;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use std::collections::HashMap;
 
 pub fn get_catalog_dir(root: &Path) -> PathBuf {
     root.join("catalog")
@@ -272,6 +273,111 @@ impl AiCommand for CatalogServiceAddCommand {
     async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
         add_service(&ctx.workspace_root, &input)?;
         Ok(input)
+    }
+}
+
+// =========================================
+// AI Command: catalog.service.update
+// =========================================
+
+/// Strict partial-merge patch for a service catalog entry.
+///
+/// Semantics (locked by design):
+/// - `commands` is a map → **per-key merge** (set `commands.dev` without touching
+///   `commands.test`).
+/// - Every other present field is a **top-level replace**.
+/// - `#[serde(deny_unknown_fields)]` makes unknown keys fail fast (strict mode).
+/// - After writing, `validate_catalog` is re-run; the command errors if validation fails.
+///
+/// Note: catalog entries have no `locks.yaml` (those are per-epic workspace locks), so
+/// no lockfile is touched here.
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CatalogServiceUpdateInput {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub team: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub products: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owns: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub likely_relevant_when: Option<Vec<String>>,
+    /// Per-key merge into the existing `commands` map.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commands: Option<HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issue_tracking: Option<CatalogIssueTracking>,
+    /// Replace whole value.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub docs: Option<Vec<CatalogDoc>>,
+    /// Replace whole value (Point #1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub understand_anything: Option<UnderstandAnythingConfig>,
+    /// Replace whole value (Point #8).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deploy: Option<DeployConfig>,
+}
+
+pub struct CatalogServiceUpdateCommand;
+
+#[async_trait]
+impl AiCommand for CatalogServiceUpdateCommand {
+    const ID: &'static str = "catalog.service.update";
+    const DESCRIPTION: &'static str = "Strict partial-merge patch into a service catalog entry; re-validates the catalog.";
+    type Input = CatalogServiceUpdateInput;
+    type Output = ServiceCatalog;
+
+    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+        let root = &ctx.workspace_root;
+        let mut service = get_service(root, &input.id)?;
+
+        // Top-level replaces.
+        if let Some(name) = input.name {
+            service.name = name;
+        }
+        if let Some(description) = input.description {
+            service.description = description;
+        }
+        if let Some(team) = input.team {
+            service.team = team;
+        }
+        if let Some(products) = input.products {
+            service.products = products;
+        }
+        if let Some(owns) = input.owns {
+            service.owns = owns;
+        }
+        if let Some(likely) = input.likely_relevant_when {
+            service.likely_relevant_when = likely;
+        }
+        if let Some(issue_tracking) = input.issue_tracking {
+            service.issue_tracking = issue_tracking;
+        }
+        if let Some(docs) = input.docs {
+            service.docs = docs;
+        }
+        if let Some(understand_anything) = input.understand_anything {
+            service.understand_anything = Some(understand_anything);
+        }
+        if let Some(deploy) = input.deploy {
+            service.deploy = Some(deploy);
+        }
+        // `commands` is a map → per-key merge.
+        if let Some(commands_patch) = input.commands {
+            for (k, v) in commands_patch {
+                service.commands.insert(k, v);
+            }
+        }
+
+        add_service(root, &service)?;
+        // Re-validate the whole catalog; fail fast on any drift.
+        validate_catalog(root)?;
+        Ok(service)
     }
 }
 

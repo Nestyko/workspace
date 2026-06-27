@@ -63,6 +63,40 @@
         "url"
       ],
       "type": "object"
+    },
+    "UnderstandAnythingConfig": {
+      "description": "Point #1 — Understand-Anything artifact configuration.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "DeployConfig": {
+      "description": "Point #8 — Deploy declaration. Either a plain command string OR {skip: true, reason: ...} for repos with no deploy target.",
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "skip": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "skip"
+          ],
+          "type": "object"
+        }
+      ]
     }
   },
   "properties": {
@@ -116,6 +150,14 @@
     },
     "team": {
       "type": "string"
+    },
+    "understand_anything": {
+      "description": "Point #1 — Understand-Anything artifact configured.",
+      "$ref": "#/definitions/UnderstandAnythingConfig"
+    },
+    "deploy": {
+      "description": "Point #8 — Deploy command string OR {skip: true, reason}.",
+      "$ref": "#/definitions/DeployConfig"
     }
   },
   "required": [

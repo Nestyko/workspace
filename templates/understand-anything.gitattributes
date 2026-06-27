@@ -1,0 +1,14 @@
+# templates/understand-anything.gitattributes
+#
+# Apply these lines to the consuming repo's root `.gitattributes` (append if the
+# file exists, create if it does not). They commit the Understand-Anything artifact
+# (Point #1) while suppressing its diff in PRs and excluding it from language stats.
+#
+# Source of truth: workflows/repo-init.md §1 and templates/understand-anything-action.yml.
+
+.understand-anything/knowledge-graph.json binary -diff linguist-generated
+.understand-anything/**             linguist-generated
+
+# Leave `.understand-anything/config.json` and any plugin manifests
+# (`.claude-plugin`, `.cursor-plugin`, `.copilot-plugin`) committed as plain text —
+# those are small, human-curated and SHOULD diff normally.
