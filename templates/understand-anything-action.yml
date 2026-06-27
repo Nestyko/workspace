@@ -1,0 +1,118 @@
+# -----------------------------------------------------------------------------
+# templates/understand-anything-action.yml
+#
+# Validated-default GitHub Action for Point #1 (Understand-Anything).
+#
+# Harness / provider pair (validated default): OpenCode harness + OpenCode Zen
+# provider. The company API key is sourced from a GitHub Actions secret.
+#
+#   ⚠ ASSUMPTION TO VERIFY: OpenCode Zen is reachable from CI with an API key.
+#     The customer stated this pair is validated; confirm Zen's CI auth path
+#     (env-var contract / invocation) when onboarding a repo. If a different
+#     harness/provider pair is chosen, the harness rewrites this file accordingly.
+#
+# -----------------------------------------------------------------------------
+# TRIGGER LIFECYCLE (locked):
+#
+#  1) ONBOARDING (ship as-is): `on: pull_request`. A brand-new workflow file that
+#     does not exist on the default branch will not appear in the Actions tab until
+#     it has run once; the only trigger that fires pre-merge is pull_request. So
+#     open the PR that adds this file + the artifact + `.gitattributes` → the
+#     Action runs against the branch → validate green.
+#
+#  2) PRODUCTION (harness flips AFTER the onboarding PR's Action runs green and
+#     the PR is merged): replace the `on:` block below with the production `on:`
+#     shown in the comment block further down. GitHub Actions has no symbolic
+#     default-branch token (`$default-branch` freezes to a literal on instantiation
+#     and only works in starter-workflow templates), so the default-branch gate is
+#     a JOB-LEVEL conditional reading repo metadata dynamically — correct whether
+#     the default branch is main / master / develop / trunk.
+# -----------------------------------------------------------------------------
+name: understand-anything
+
+# ---- ONBOARDING TRIGGER (active) ----
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: understand-anything-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  understand:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history for an accurate incremental knowledge graph.
+          fetch-depth: 0
+
+      - name: Install OpenCode
+        run: |
+          # Install the OpenCode CLI (validated default harness).
+          # Pin the version once a known-good release is confirmed.
+          curl -fsSL https://opencode.ai/install | bash
+
+      - name: Generate / refresh Understand-Anything artifact
+        env:
+          # Zen provider credentials from GitHub Actions secret.
+          OPENCODE_PROVIDER: zen
+          ZEN_API_KEY: ${{ secrets.ZEN_API_KEY }}
+        run: |
+          opencode run /understand --auto-update
+          # The artifact is written to .understand-anything/knowledge-graph.json
+          # (plus config.json / plugin manifests, which stay plain-text-committed).
+
+      - name: Commit refreshed artifact (skip-ci)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Only commit if the artifact changed.
+          if ! git diff --quiet -- .understand-anything/knowledge-graph.json; then
+            git add .understand-anything/knowledge-graph.json
+            git commit -m "chore(understand-anything): refresh knowledge-graph.json [skip ci]"
+            git push
+          else
+            echo "No artifact changes to commit."
+          fi
+
+# -----------------------------------------------------------------------------
+# PRODUCTION TRIGGER — swap the `on:` block above for this AFTER the onboarding
+# PR's Action run is green and the PR is merged. The default-branch gate is the
+# job-level `if:` below (NOT a trigger token), so it dynamically matches the repo's
+# default branch. Optional periodic refresh via `schedule:`.
+#
+# on:
+#   push: {}
+#   workflow_dispatch:
+#   # schedule:
+#   #   - cron: "0 3 * * *"
+#
+# jobs:
+#   understand:
+#     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+#     runs-on: ubuntu-latest
+#     steps:
+#       ... (same steps as above) ...
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# .gitattributes SNIPPET (apply once per consuming repo at repo root):
+#
+#   .understand-anything/knowledge-graph.json binary -diff linguist-generated
+#   .understand-anything/**             linguist-generated
+#
+# Why:
+#   - binary    → no line-ending normalization, no merge attempts; `git diff` shows
+#                 "Binary files differ". (SO #58918555.)
+#   - -diff     → strictly suppress diff emission. (Often used with `binary`.)
+#   - linguist-generated → GitHub UI collapses/hides the diff in PRs and excludes
+#                 the artifact from language stats.
+#
+# Leave `.understand-anything/config.json` and any plugin manifests committed as
+# plain text — those are small, human-curated.
+# -----------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # AI Workspace Rules for Autonomous Coding Agents
 
-Welcome Agent! This document defines your behavioral boundaries, rules, and guidelines when working in this multi-repo workspace.
+Welcome Agent! This document defines your behavioral boundaries, rules, and guidelines when working in this multi-repo workspace. **This file is ws-managed** — regenerate it with `ws ai run provider.config.sync_instructions --input '{}'`. Do not hand-edit the ws-managed sections; append custom integration blocks between dedicated BEGIN/END markers instead.
 
 ## Core Rules
 
@@ -12,18 +12,37 @@ Welcome Agent! This document defines your behavioral boundaries, rules, and guid
 
 ## Workflow Rules
 
-- Refer to the workflows documented under `workflows/` for step-by-step processes:
-  - [workflows/idea-to-prd.md](file:///Users/nestyko/Documents/playground/ws/workflows/idea-to-prd.md)
-  - [workflows/prd-to-issues.md](file:///Users/nestyko/Documents/playground/ws/workflows/prd-to-issues.md)
-  - [workflows/issue-to-implementation.md](file:///Users/nestyko/Documents/playground/ws/workflows/issue-to-implementation.md)
-  - [workflows/cross-repo-review.md](file:///Users/nestyko/Documents/playground/ws/workflows/cross-repo-review.md)
-  - [workflows/knowledge-base.md](file:///Users/nestyko/Documents/playground/ws/workflows/knowledge-base.md)
+Refer to the workflows documented under `workflows/` for step-by-step processes:
+  - [workflows/cross-repo-review.md](workflows/cross-repo-review.md)
+  - [workflows/deploy.md](workflows/deploy.md)
+  - [workflows/idea-to-prd.md](workflows/idea-to-prd.md)
+  - [workflows/issue-to-implementation.md](workflows/issue-to-implementation.md)
+  - [workflows/knowledge-base.md](workflows/knowledge-base.md)
+  - [workflows/prd-to-issues.md](workflows/prd-to-issues.md)
+  - [workflows/repo-init.md](workflows/repo-init.md)
+  - [workflows/repo-verify.md](workflows/repo-verify.md)
+
+## Repo-Init Healthcheck (ws / harness / customer split)
+
+When a repo is initialized/added to the catalog, the harness works it through the locked 10-point checklist in [workflows/repo-init.md](workflows/repo-init.md). The split is invariant:
+
+- **`ws`** = the deterministic oracle: reads (`repo.healthcheck`), executes a single command (`repo.run`), emits specs (`repo.fix_loop.prompt`), validates writes (`catalog.service.update`, strict). **Never fixes, never judges, never owns an LLM.**
+- **Customer's harness** = the agent. Runs setup, picks the harness+provider for #1, performs the 2-subagent fix-loop ([workflows/repo-verify.md](workflows/repo-verify.md)), authors `verify_run`/`agent_verify` scripts, calls `catalog.service.update`.
+- **Customer (human)** = fills gaps the harness can't (probe-script content, deploy envs in [workflows/deploy.md](workflows/deploy.md), decides integration-test applicability).
+
+Relevant `ws ai run` commands: `repo.healthcheck`, `repo.run`, `repo.verify`, `repo.fix_loop.prompt`, `repo.understand.verify`, `catalog.service.update`. Run `ws ai manifest` for the full list and `ws ai schema <command> input` for input shapes.
+
+## Catalog Snapshot
+
+- Services: 0 registered under `catalog/services/`
+- Products: 0 registered under `catalog/products/`
+- Teams: 0 registered under `catalog/teams/`
 
 ## Product Knowledge Base
 
 The company product side maintains an LLM-maintained wiki under `catalog/knowledge/`, following the [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). It is a persistent, compounding artifact: source documents are compiled once into interlinked markdown and kept current over time.
 
-- **Read [`catalog/knowledge/SCHEMA.md`](file:///Users/nestyko/Documents/playground/ws/catalog/knowledge/SCHEMA.md) before maintaining the wiki** — it is the authoritative contract for structure, conventions, and the ingest/query/update/lint operations.
+- **Read `catalog/knowledge/SCHEMA.md` before maintaining the wiki** — it is the authoritative contract for structure, conventions, and the ingest/query/update/lint operations.
 - **Raw sources** go in `catalog/knowledge/raw/` (the human drops files here; it is gitignored and never modified by the agent). External Document sources are also supported — by default **Confluence** (see `config/providers/confluence.md` and each product's `knowledge_sources`).
 - **The wiki** (`catalog/knowledge/wiki/`) is agent-owned, version-controlled markdown (`index.md` + `log.md` + topic/entity/source/synthesis pages).
 - When brainstorming an idea, use the wiki as the primary context layer. If a new, unconfirmed fact surfaces, **ask the user to confirm it and provide a source before integrating it** — never inject unconfirmed facts as if they were sourced.

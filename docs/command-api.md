@@ -674,6 +674,43 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "url"
       ],
       "type": "object"
+    },
+    "DeployConfig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "skip": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "skip"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Point #8 — Deploy declaration.\n\nA plain command string declares the deploy invocation. `Skip { skip: true, reason }` is the explicit opt-out for repos with no deploy target (library / CLI)."
+    },
+    "UnderstandAnythingConfig": {
+      "description": "Point #1 — Understand-Anything artifact configuration.\n\nWhen `enabled: true`, `repo.healthcheck` expects a committed `.understand-anything/` artifact, the canonical `.gitattributes` diff-suppression lines, and the GitHub Action workflow file that refreshes the artifact on merge to the default branch.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
     }
   },
   "properties": {
@@ -682,6 +719,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "type": "string"
       },
       "type": "object"
+    },
+    "deploy": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DeployConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "description": {
       "type": "string"
@@ -727,6 +774,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
     },
     "team": {
       "type": "string"
+    },
+    "understand_anything": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/UnderstandAnythingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -816,6 +873,43 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "url"
       ],
       "type": "object"
+    },
+    "DeployConfig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "skip": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "skip"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Point #8 — Deploy declaration.\n\nA plain command string declares the deploy invocation. `Skip { skip: true, reason }` is the explicit opt-out for repos with no deploy target (library / CLI)."
+    },
+    "UnderstandAnythingConfig": {
+      "description": "Point #1 — Understand-Anything artifact configuration.\n\nWhen `enabled: true`, `repo.healthcheck` expects a committed `.understand-anything/` artifact, the canonical `.gitattributes` diff-suppression lines, and the GitHub Action workflow file that refreshes the artifact on merge to the default branch.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
     }
   },
   "properties": {
@@ -824,6 +918,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "type": "string"
       },
       "type": "object"
+    },
+    "deploy": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DeployConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "description": {
       "type": "string"
@@ -869,6 +973,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
     },
     "team": {
       "type": "string"
+    },
+    "understand_anything": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/UnderstandAnythingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -982,6 +1096,43 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "url"
       ],
       "type": "object"
+    },
+    "DeployConfig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "skip": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "skip"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Point #8 — Deploy declaration.\n\nA plain command string declares the deploy invocation. `Skip { skip: true, reason }` is the explicit opt-out for repos with no deploy target (library / CLI)."
+    },
+    "UnderstandAnythingConfig": {
+      "description": "Point #1 — Understand-Anything artifact configuration.\n\nWhen `enabled: true`, `repo.healthcheck` expects a committed `.understand-anything/` artifact, the canonical `.gitattributes` diff-suppression lines, and the GitHub Action workflow file that refreshes the artifact on merge to the default branch.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
     }
   },
   "properties": {
@@ -990,6 +1141,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "type": "string"
       },
       "type": "object"
+    },
+    "deploy": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DeployConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "description": {
       "type": "string"
@@ -1035,6 +1196,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
     },
     "team": {
       "type": "string"
+    },
+    "understand_anything": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/UnderstandAnythingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [
@@ -1141,6 +1312,31 @@ This document defines the list of typed JSON commands supported by the AI worksp
       ],
       "type": "object"
     },
+    "DeployConfig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "skip": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "skip"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Point #8 — Deploy declaration.\n\nA plain command string declares the deploy invocation. `Skip { skip: true, reason }` is the explicit opt-out for repos with no deploy target (library / CLI)."
+    },
     "ServiceCatalog": {
       "properties": {
         "commands": {
@@ -1148,6 +1344,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
             "type": "string"
           },
           "type": "object"
+        },
+        "deploy": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/DeployConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "description": {
           "type": "string"
@@ -1193,6 +1399,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
         },
         "team": {
           "type": "string"
+        },
+        "understand_anything": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/UnderstandAnythingConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1210,6 +1426,18 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "team"
       ],
       "type": "object"
+    },
+    "UnderstandAnythingConfig": {
+      "description": "Point #1 — Understand-Anything artifact configuration.\n\nWhen `enabled: true`, `repo.healthcheck` expects a committed `.understand-anything/` artifact, the canonical `.gitattributes` diff-suppression lines, and the GitHub Action workflow file that refreshes the artifact on merge to the default branch.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
     }
   },
   "items": {
@@ -1217,6 +1445,403 @@ This document defines the list of typed JSON commands supported by the AI worksp
   },
   "title": "Array_of_ServiceCatalog",
   "type": "array"
+}
+```
+
+---
+
+## `catalog.service.update`
+
+**Description:** Strict partial-merge patch into a service catalog entry; re-validates the catalog.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "CatalogDoc": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CatalogIssueTracking": {
+      "properties": {
+        "component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "project": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project",
+        "provider"
+      ],
+      "type": "object"
+    },
+    "DeployConfig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "skip": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "skip"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Point #8 — Deploy declaration.\n\nA plain command string declares the deploy invocation. `Skip { skip: true, reason }` is the explicit opt-out for repos with no deploy target (library / CLI)."
+    },
+    "UnderstandAnythingConfig": {
+      "description": "Point #1 — Understand-Anything artifact configuration.\n\nWhen `enabled: true`, `repo.healthcheck` expects a committed `.understand-anything/` artifact, the canonical `.gitattributes` diff-suppression lines, and the GitHub Action workflow file that refreshes the artifact on merge to the default branch.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "Strict partial-merge patch for a service catalog entry.\n\nSemantics (locked by design): - `commands` is a map → **per-key merge** (set `commands.dev` without touching `commands.test`). - Every other present field is a **top-level replace**. - `#[serde(deny_unknown_fields)]` makes unknown keys fail fast (strict mode). - After writing, `validate_catalog` is re-run; the command errors if validation fails.\n\nNote: catalog entries have no `locks.yaml` (those are per-epic workspace locks), so no lockfile is touched here.",
+  "properties": {
+    "commands": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Per-key merge into the existing `commands` map.",
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "deploy": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DeployConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Replace whole value (Point #8)."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "docs": {
+      "description": "Replace whole value.",
+      "items": {
+        "$ref": "#/definitions/CatalogDoc"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "id": {
+      "type": "string"
+    },
+    "issue_tracking": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CatalogIssueTracking"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "likely_relevant_when": {
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "owns": {
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "products": {
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "team": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "understand_anything": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/UnderstandAnythingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Replace whole value (Point #1)."
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "title": "CatalogServiceUpdateInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "CatalogDoc": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CatalogIssueTracking": {
+      "properties": {
+        "component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "project": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project",
+        "provider"
+      ],
+      "type": "object"
+    },
+    "CatalogRepo": {
+      "properties": {
+        "default_branch": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "default_branch",
+        "name",
+        "owner",
+        "provider",
+        "url"
+      ],
+      "type": "object"
+    },
+    "DeployConfig": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "properties": {
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "skip": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "skip"
+          ],
+          "type": "object"
+        }
+      ],
+      "description": "Point #8 — Deploy declaration.\n\nA plain command string declares the deploy invocation. `Skip { skip: true, reason }` is the explicit opt-out for repos with no deploy target (library / CLI)."
+    },
+    "UnderstandAnythingConfig": {
+      "description": "Point #1 — Understand-Anything artifact configuration.\n\nWhen `enabled: true`, `repo.healthcheck` expects a committed `.understand-anything/` artifact, the canonical `.gitattributes` diff-suppression lines, and the GitHub Action workflow file that refreshes the artifact on merge to the default branch.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "commands": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "deploy": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DeployConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "description": {
+      "type": "string"
+    },
+    "docs": {
+      "items": {
+        "$ref": "#/definitions/CatalogDoc"
+      },
+      "type": "array"
+    },
+    "id": {
+      "type": "string"
+    },
+    "issue_tracking": {
+      "$ref": "#/definitions/CatalogIssueTracking"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "likely_relevant_when": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "name": {
+      "type": "string"
+    },
+    "owns": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "products": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "repo": {
+      "$ref": "#/definitions/CatalogRepo"
+    },
+    "team": {
+      "type": "string"
+    },
+    "understand_anything": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/UnderstandAnythingConfig"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "commands",
+    "description",
+    "docs",
+    "id",
+    "issue_tracking",
+    "kind",
+    "likely_relevant_when",
+    "name",
+    "owns",
+    "products",
+    "repo",
+    "team"
+  ],
+  "title": "ServiceCatalog",
+  "type": "object"
 }
 ```
 
@@ -2006,6 +2631,49 @@ This document defines the list of typed JSON commands supported by the AI worksp
 
 ---
 
+## `provider.config.sync_instructions`
+
+**Description:** Regenerate the ws-managed company AGENTS.md (workflows + catalog + practices). Non-destructive to integration blocks.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Regenerate the ws-managed **company `AGENTS.md`** at the workspace root to reflect the current `workflows/*.md`, the current catalog, and company practices (incl. the repo-init healthcheck surface). Counterpart to read-only `provider.config.get_instructions`.\n\nNon-destructive to third-party integration blocks: any `<!-- BEGIN ... -->` / `<!-- END ... -->` block already present (e.g. the Beads tracker section) is preserved verbatim and re-appended.",
+  "title": "ProviderConfigSyncInstructionsInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "message": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "success": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "message",
+    "path",
+    "success"
+  ],
+  "title": "ProviderConfigSyncInstructionsOutput",
+  "type": "object"
+}
+```
+
+---
+
 ## `provider.doc.check_auth`
 
 **Description:** Check authentication status with the configured doc provider.
@@ -2590,6 +3258,560 @@ This document defines the list of typed JSON commands supported by the AI worksp
     "success"
   ],
   "title": "StatusOutput",
+  "type": "object"
+}
+```
+
+---
+
+## `repo.fix_loop.prompt`
+
+**Description:** Emit a harness-readable markdown spec for the 2-subagent setup fix-loop. ws does NOT run it.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "service_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "service_id"
+  ],
+  "title": "RepoFixLoopPromptInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "service_id": {
+      "type": "string"
+    },
+    "spec": {
+      "description": "The full markdown spec the harness follows.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "service_id",
+    "spec"
+  ],
+  "title": "RepoFixLoopPromptOutput",
+  "type": "object"
+}
+```
+
+---
+
+## `repo.healthcheck`
+
+**Description:** Read-only 10-point repo-init healthcheck for a service repo (declaration + file-existence).
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "check": {
+      "description": "`\"all\"` (default) or a single check id like `\"1\"`, `\"5\"`, `\"10\"`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "repo_path": {
+      "description": "Absolute or relative path to a *working checkout* (working tree) of the repo. `ws` never clones; the harness supplies the path (e.g. a workspace worktree at `workspaces/<epic>/repos/<service_id>` or any local clone).",
+      "type": "string"
+    },
+    "service_id": {
+      "description": "Catalog service id whose repo is being healthchecked.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "repo_path",
+    "service_id"
+  ],
+  "title": "RepoHealthcheckInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "CheckStatus": {
+      "oneOf": [
+        {
+          "description": "Fully satisfied (used by file/structural + declaration gates when present).",
+          "enum": [
+            "present"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Required gate not satisfied at all.",
+          "enum": [
+            "missing"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Some sub-parts satisfied, others not.",
+          "enum": [
+            "partial"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Declaration gate satisfied (field present in catalog).",
+          "enum": [
+            "declared"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Declaration gate not satisfied (field absent from catalog).",
+          "enum": [
+            "not_declared"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Explicitly not applicable (unused by active points today; reserved).",
+          "enum": [
+            "na"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "HealthcheckRow": {
+      "properties": {
+        "blocking": {
+          "description": "True when an unsatisfied status blocks repo readiness.",
+          "type": "boolean"
+        },
+        "check_id": {
+          "description": "One of \"1\"..\"8\",\"10\".",
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Human-readable evidence trail (paths, present/absent keys).",
+          "type": "string"
+        },
+        "run_hint": {
+          "description": "Brief next-step hint for the harness (full templates in workflows/repo-init.md).",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/CheckStatus"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "blocking",
+        "check_id",
+        "evidence",
+        "run_hint",
+        "status",
+        "title"
+      ],
+      "type": "object"
+    },
+    "HealthcheckSummary": {
+      "properties": {
+        "blocking_failures": {
+          "description": "Rows that are blocking AND unsatisfied (Present/Declared do not count).",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "declared": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "missing": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "not_declared": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "partial": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "present": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "total": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "blocking_failures",
+        "declared",
+        "missing",
+        "not_declared",
+        "partial",
+        "present",
+        "total"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "repo_path": {
+      "type": "string"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/definitions/HealthcheckRow"
+      },
+      "type": "array"
+    },
+    "service_id": {
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "#/definitions/HealthcheckSummary"
+    }
+  },
+  "required": [
+    "repo_path",
+    "rows",
+    "service_id",
+    "summary"
+  ],
+  "title": "RepoHealthcheckOutput",
+  "type": "object"
+}
+```
+
+---
+
+## `repo.run`
+
+**Description:** Deterministic single-command executor (exit or serve+poll). Never runs deploy.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "command": {
+      "description": "Catalog command key to run: install | test | test_integration | agent_verify | verify_run | dev | run. `deploy` is refused.",
+      "type": "string"
+    },
+    "repo_path": {
+      "description": "Absolute or relative path to a working checkout of the repo.",
+      "type": "string"
+    },
+    "service_id": {
+      "type": "string"
+    },
+    "timeout": {
+      "description": "Timeout in seconds (default 180).",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "command",
+    "repo_path",
+    "service_id"
+  ],
+  "title": "RepoRunInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "command": {
+      "description": "Command key that was run.",
+      "type": "string"
+    },
+    "command_value": {
+      "description": "Actual shell string from the catalog.",
+      "type": "string"
+    },
+    "duration_secs": {
+      "format": "double",
+      "type": "number"
+    },
+    "exit_code": {
+      "format": "int32",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "mode": {
+      "description": "\"exit\" or \"serve\".",
+      "type": "string"
+    },
+    "smoke_passed": {
+      "description": "For exit mode: exit_code == 0. For serve mode: verify_run probe passed.",
+      "type": "boolean"
+    },
+    "stderr_tail": {
+      "type": "string"
+    },
+    "stdout_tail": {
+      "type": "string"
+    },
+    "timed_out": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "command",
+    "command_value",
+    "duration_secs",
+    "mode",
+    "smoke_passed",
+    "stderr_tail",
+    "stdout_tail",
+    "timed_out"
+  ],
+  "title": "RepoRunOutput",
+  "type": "object"
+}
+```
+
+---
+
+## `repo.understand.verify`
+
+**Description:** Verify Point #1 (Understand-Anything): artifact present + Action green + PR merged.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "pr_number": {
+      "description": "The onboarding PR number that adds the workflow + commits the artifact.",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "repo_path": {
+      "description": "Absolute or relative path to a working checkout of the repo.",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "Optional explicit workflow run id. If given, its conclusion is checked directly (more precise than PR-check name heuristics).",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "service_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "pr_number",
+    "repo_path",
+    "service_id"
+  ],
+  "title": "RepoUnderstandVerifyInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "artifact_ok": {
+      "type": "boolean"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "overall": {
+      "type": "boolean"
+    },
+    "pr_merged": {
+      "type": "boolean"
+    },
+    "service_id": {
+      "type": "string"
+    },
+    "workflow_run_green": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "artifact_ok",
+    "evidence",
+    "overall",
+    "pr_merged",
+    "service_id",
+    "workflow_run_green"
+  ],
+  "title": "RepoUnderstandVerifyOutput",
+  "type": "object"
+}
+```
+
+---
+
+## `repo.verify`
+
+**Description:** Deterministic run-all (post-setup); excludes deploy; stops at first failure.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "repo_path": {
+      "description": "Absolute or relative path to a working checkout of the repo.",
+      "type": "string"
+    },
+    "service_id": {
+      "type": "string"
+    },
+    "timeout": {
+      "description": "Per-command timeout in seconds (default 180).",
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "repo_path",
+    "service_id"
+  ],
+  "title": "RepoVerifyInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "VerifyStepResult": {
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "duration_secs": {
+          "format": "double",
+          "type": "number"
+        },
+        "exit_code": {
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "stderr_tail": {
+          "type": "string"
+        },
+        "stdout_tail": {
+          "type": "string"
+        },
+        "timed_out": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "command",
+        "duration_secs",
+        "passed",
+        "stderr_tail",
+        "stdout_tail",
+        "timed_out"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "all_passed": {
+      "type": "boolean"
+    },
+    "service_id": {
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/definitions/VerifyStepResult"
+      },
+      "type": "array"
+    },
+    "steps_run": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "stopped_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "all_passed",
+    "service_id",
+    "steps",
+    "steps_run"
+  ],
+  "title": "RepoVerifyOutput",
   "type": "object"
 }
 ```

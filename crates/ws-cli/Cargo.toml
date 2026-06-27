@@ -29,3 +29,4 @@ ws-provider-jira = { workspace = true }
 ws-provider-github-gh = { workspace = true }
 ws-editors = { workspace = true }
 ws-ai-docs = { workspace = true }
+ws-repo = { workspace = true }

@@ -2277,6 +2277,7 @@ dependencies = [
  "ws-provider-github-gh",
  "ws-provider-jira",
  "ws-providers",
+ "ws-repo",
  "ws-workspace",
 ]
 
@@ -2369,6 +2370,26 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "thiserror",
+ "ws-core",
+]
+
+[[package]]
+name = "ws-repo"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "duct",
+ "libc",
+ "miette",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "ws-catalog",
  "ws-core",
 ]
 
