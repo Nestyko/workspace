@@ -1,3 +1,17 @@
+---
+name: ws-self-heal
+description: >-
+  Run the ws repository quality loop in two modes. Mode A - all repositories is
+  autonomous and report-only (no fixes); it emits a consolidated report of what is lacking
+  and what to fix. Mode B - single repository is interactive, human-guided fixing to
+  converge one service's healthcheck to green via the 2-subagent fix-loop ws defines. Use
+  when the user says 'healthcheck repos', 'run the fix loop', 'self-heal', 'repo quality',
+  'what's lacking in my repos', 'fix repo gaps', or asks to converge a service to green.
+  ws is the deterministic oracle (measures, executes primitives, validates writes); this
+  skill is the harness that operates it.
+disable-model-invocation: true
+---
+
 # Skill — `ws-self-heal` (Quality Loop & Fix Orchestration)
 
 > Run the `ws` repo quality loop in one of two modes:

@@ -121,3 +121,28 @@ The CLI core (`ws-core`) defines decoupled traits for:
 - `EditorAdapter` (Adapters for Cursor, VS Code, Zed, and Vim)
 
 This keeps the core engine decoupled from specific APIs and tool details.
+
+---
+
+## Agent Skills
+
+This repo ships two harness-agnostic [Agent Skills](https://agentskills.io/) that turn the
+`ws` CLI into an end-to-end AI workspace quality system:
+
+| Skill | Purpose |
+|---|---|
+| **ws-init** | Bootstrap a fresh `ws` workspace in an empty folder using only non-interactive `ws` commands (replaces the TTY-only `ws init` for headless agents). |
+| **ws-self-heal** | Run the repo quality loop — Mode A: all-repos autonomous report-only; Mode B: single-repo human-guided fix. |
+
+Both skills live under [`skills/`](skills/). They are **manual-run only**
+(`disable-model-invocation: true`): they are never loaded on init and never fill the
+context window — invoke them on demand (e.g. `/skill:ws-init`).
+
+Install both into any supported agent with a single command, from the repo root:
+
+```bash
+bunx skills add .
+```
+
+> The install command is **`add`**, not `install`. See [`skills/README.md`](skills/README.md)
+> for harness-specific notes and a manual fallback.

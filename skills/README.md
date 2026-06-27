@@ -19,24 +19,37 @@ skill runs the healthcheck → fix → record → re-check loop the `ws` primiti
 
 ## Installing into a harness
 
-Each `SKILL.md` is a self-contained prompt — load it however your harness ingests skills:
+Each `SKILL.md` is a self-contained prompt compliant with the
+[Agent Skills](https://agentskills.io/) standard (YAML frontmatter: `name`,
+`description`, `disable-model-invocation`). Install them with the
+[`skills`](https://www.npmjs.com/package/skills) CLI in a single command from the repo
+root — it auto-detects installed agents and symlinks each skill into the right directory:
 
-### pi
 ```bash
-mkdir -p ~/.pi/agent-personal/skills
-ln -s "$(pwd)/skills/ws-init"      ~/.pi/agent-personal/skills/ws-init
-ln -s "$(pwd)/skills/ws-self-heal" ~/.pi/agent-personal/skills/ws-self-heal
+bunx skills add .
 ```
-(pi loads any `SKILL.md` under `~/.pi/agent-personal/skills/<name>/`.)
 
-### Claude Code
-Append the skill body to `.claude/CLAUDE.md`, or place the file under a skills dir your
-project loads. For a per-project install, drop the two `SKILL.md` files into
-`.claude/skills/` (or reference them from the project `CLAUDE.md`).
+Add `-l`/`--list` to preview without installing, `-g` for a global (user-level) install,
+`-a <agent>` to target a specific agent, `--skill '*'` for all skills, or `-y` to skip
+prompts (e.g. `bunx skills add . --skill '*' -a claude-code -y`).
 
-### Codex / Cursor / other
-Paste the `SKILL.md` body into your agent's instructions/config file, or import it as a
-custom instruction set. The files are plain markdown with no harness-specific runtime.
+> [!NOTE]
+> The install command is **`add`**, not `install`. Both skills carry
+> `disable-model-invocation: true`, so they are **never auto-loaded on init** and never
+> appear in the system prompt — they don't fill the context window. Invoke them manually
+> only when needed, via your harness's skill command (e.g. in pi: `/skill:ws-init`,
+> `/skill:ws-self-heal`).
+
+### Manual / no-CLI fallback
+Each `SKILL.md` is plain markdown with no harness-specific runtime. If you can't use the
+`skills` CLI, copy or symlink the two directories into your agent's skills dir yourself,
+e.g. for pi:
+```bash
+mkdir -p ~/.pi/agent/skills
+ln -s "$(pwd)/skills/ws-init"      ~/.pi/agent/skills/ws-init
+ln -s "$(pwd)/skills/ws-self-heal" ~/.pi/agent/skills/ws-self-heal
+```
+(pi loads any `SKILL.md` under `~/.pi/agent/skills/<name>/` or `.pi/skills/<name>/`.)
 
 ### Prerequisites (all harnesses)
 - `ws` on PATH with the quality commands (expect 39 in `ws ai manifest`). If fewer,

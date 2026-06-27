@@ -1,3 +1,16 @@
+---
+name: ws-init
+description: >-
+  Bootstrap a fresh ws multi-repo AI workspace in an empty folder using only non-interactive
+  ws commands. Use when the user says 'initialize ws', 'set up ws workspace', 'bootstrap ai
+  workspace', 'create a new ws workspace', or when working in an empty folder intended to
+  become a ws workspace. Replaces the TTY-only interactive `ws init` flow for headless
+  agents - the human answers setup questions in chat while the agent applies config, seeds
+  the catalog, validates, and regenerates AGENTS.md. Scaffolds config + catalog only; does
+  not run healthchecks or fix loops (use ws-self-heal for that).
+disable-model-invocation: true
+---
+
 # Skill — `ws-init` (Workspace Bootstrap)
 
 > Scaffold a brand-new `ws` AI workspace in an empty folder, end-to-end, using only
