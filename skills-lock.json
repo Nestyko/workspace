@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "ws-init": {
+      "source": "/Users/nestyko/Documents/playground/ws",
+      "sourceType": "local",
+      "computedHash": "7c347759f2040ff7aa3b178a2b6081dc58f9ea1ab75eefc308130362226e519a"
+    },
+    "ws-self-heal": {
+      "source": "/Users/nestyko/Documents/playground/ws",
+      "sourceType": "local",
+      "computedHash": "e8f21013cec41ca1a9adddb68666ba275b7ffa42ed3b7ec9e5b46ca4ba15bf41"
+    }
+  }
+}
