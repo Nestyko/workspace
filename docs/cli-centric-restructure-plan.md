@@ -206,9 +206,9 @@ in favor of generation): `catalog/`, `config/`, `schemas/`, `templates/`, `workf
 ## 6. Status
 
 - ✅ Decision 1, 2, 3 recorded.
-- ✅ Q3 resolved (`include_dir`); tracked via a standalone adoption ticket.
+- ✅ Q3 resolved (`include_dir`) **and shipped** — `include_dir@0.7` added to the workspace, `crates/ws-cli/assets/` established as the canonical embedded-asset location, macro wired (`ws_cli::assets::ASSETS`), smoke test green. Standalone adoption ticket landed.
 - ✅ Q4 resolved (skip-by-default + `--reset <asset>`; Tier 1 refreshable, Tier 3 user-owned).
 - ✅ Q5 resolved (`docs/folder-contract.md`), deferred out of `ws kb` scope.
 - ✅ Q6 resolved (`ws schema generate [service|product|team|workspace] [--out schemas/]`), Tier 2.
 - ⏸️ Q2 (Tier-2 deletion of committed schemas) still pending confirmation.
-- ⏸️ No code changes made yet; `ws kb` epic tickets filed in dex.
+- ⏸️ Q2 only remaining. Code changes begun: Q3 mechanism shipped, `ws kb` epic underway (tickets filed in dex).

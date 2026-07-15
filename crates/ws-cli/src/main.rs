@@ -1,3 +1,5 @@
+mod assets;
+
 use clap::{Parser, Subcommand};
 use inquire::{Confirm, MultiSelect, Select, Text};
 use std::collections::HashMap;
@@ -6,6 +8,7 @@ use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
 use std::fs;
+
 use ws_core::command::{CommandRegistry, AiCommand};
 use ws_core::context::CommandContext;
 use ws_core::error::WorkspaceError;
