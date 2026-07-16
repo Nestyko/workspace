@@ -11,7 +11,8 @@ members = [
     "crates/ws-provider-github-gh",
     "crates/ws-editors",
     "crates/ws-ai-docs",
-    "crates/ws-repo"
+    "crates/ws-repo",
+    "crates/ws-kb"
 ]
 
 [workspace.dependencies]
@@ -41,4 +42,6 @@ ws-provider-github-gh = { path = "crates/ws-provider-github-gh" }
 ws-editors = { path = "crates/ws-editors" }
 ws-ai-docs = { path = "crates/ws-ai-docs" }
 ws-repo = { path = "crates/ws-repo" }
+ws-kb = { path = "crates/ws-kb" }
 include_dir = "0.7"
+tempfile = "3"
