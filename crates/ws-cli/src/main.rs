@@ -110,6 +110,12 @@ enum Commands {
         #[command(subcommand)]
         ai_sub: AiSub,
     },
+
+    #[command(about = "Knowledge base: scaffold the catalog/knowledge/ wiki")]
+    Kb {
+        #[command(subcommand)]
+        kb_sub: KbSub,
+    },
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -170,6 +176,12 @@ enum PrSub {
         #[arg(long, help = "Draft Pull Request")]
         draft: bool,
     },
+}
+
+#[derive(Subcommand, Clone, Debug)]
+enum KbSub {
+    #[command(about = "Scaffold the knowledge-base tree from embedded assets (skip-by-default)")]
+    Init,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -357,6 +369,9 @@ async fn run_cli(
         Commands::Ai { ai_sub } => {
             handle_ai(ctx.clone(), registry, ai_sub).await?;
         }
+        Commands::Kb { kb_sub } => {
+            handle_kb(workspace_root, kb_sub)?;
+        }
     }
     Ok(())
 }
@@ -491,6 +506,26 @@ docs:
     }
 
     println!("\nAI Workspace initialized successfully!");
+    Ok(())
+}
+
+fn handle_kb(root: &Path, kb_sub: KbSub) -> Result<(), WorkspaceError> {
+    match kb_sub {
+        KbSub::Init => {
+            let report = ws_kb::scaffold(root)?;
+            println!("Knowledge base scaffold:");
+            let mut written = 0;
+            let mut skipped = 0;
+            for a in &report.assets {
+                println!("  {:<10} {}", format!("{:?}", a.status).to_lowercase(), a.path);
+                match a.status {
+                    ws_kb::AssetStatus::Written => written += 1,
+                    ws_kb::AssetStatus::Skipped => skipped += 1,
+                }
+            }
+            println!("\n{} written, {} skipped.", written, skipped);
+        }
+    }
     Ok(())
 }
 
@@ -927,4 +962,43 @@ async fn handle_ai(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod kb_cli_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// Smoke test: `ws kb init` dispatches to ws-kb::scaffold and writes the
+    /// complete knowledge-base tree. The CLI is a thin wrapper over the
+    /// library (tested in ws-kb); this only verifies dispatch + that a real
+    /// KB tree lands on disk under <root>/catalog/knowledge/.
+    #[test]
+    fn ws_kb_init_scaffolds_the_tree() {
+        let tmp = TempDir::new().unwrap();
+        handle_kb(tmp.path(), KbSub::Init).unwrap();
+
+        let kb_root = tmp.path().join("catalog").join("knowledge");
+        assert!(kb_root.is_dir(), "catalog/knowledge/ should exist after ws kb init");
+        assert!(
+            kb_root.join("SCHEMA.md").is_file(),
+            "SCHEMA.md should be scaffolded"
+        );
+        assert!(
+            kb_root.join("wiki").join("index.md").is_file(),
+            "wiki/index.md should be scaffolded"
+        );
+    }
+
+    /// The `Kb::Init` subcommand parses from CLI args the same way other
+    /// subcommands do — guards against accidental breakage of the clap wiring.
+    #[test]
+    fn kb_init_subcommand_parses() {
+        let cli = Cli::try_parse_from(["ws", "kb", "init"]);
+        assert!(cli.is_ok(), "ws kb init should parse: {:?}", cli.err());
+        assert!(matches!(
+            cli.unwrap().command,
+            Commands::Kb { kb_sub: KbSub::Init }
+        ));
+    }
 }
