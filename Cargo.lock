@@ -2346,6 +2346,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ws-kb"
+version = "0.1.0"
+dependencies = [
+ "include_dir",
+ "tempfile",
+ "ws-core",
+]
+
+[[package]]
 name = "ws-provider-github-gh"
 version = "0.1.0"
 dependencies = [

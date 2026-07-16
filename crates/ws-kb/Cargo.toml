@@ -1,0 +1,11 @@
+[package]
+name = "ws-kb"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+include_dir = { workspace = true }
+ws-core = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
