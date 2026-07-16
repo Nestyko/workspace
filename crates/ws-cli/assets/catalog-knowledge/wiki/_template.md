@@ -1,5 +1,6 @@
 ---
 title: Page Title
+stream: product  # product | engineering (single wiki, both streams; not folder-partitioned)
 type: topic | entity | source | synthesis
 tags: []
 created: 2026-06-23
