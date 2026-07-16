@@ -30,3 +30,4 @@ ws-provider-github-gh = { workspace = true }
 ws-editors = { workspace = true }
 ws-ai-docs = { workspace = true }
 ws-repo = { workspace = true }
+include_dir = { workspace = true }
