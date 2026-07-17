@@ -6,10 +6,12 @@
 > follow when *ingesting* sources, *answering* questions, or *linting* the wiki.
 > Co-evolve this file with the product team as you learn what works.
 
-This knowledge base covers the **company product side only**. It is compiled and
-maintained by the AI agent. The `catalog/teams/` and `catalog/services/`
-directories are governed by their own schemas and are **out of scope** here — do
-not restructure them or duplicate their content into this wiki.
+This knowledge base holds **both product and engineering knowledge** in a
+single wiki (see [Both streams live here](#both-streams-live-here)). It is
+compiled and maintained by the AI agent. The `catalog/teams/` and
+`catalog/services/` directories are governed by their own schemas and are
+**out of scope** here — do not restructure them or duplicate their content
+into this wiki.
 
 ---
 
@@ -56,6 +58,77 @@ catalog/knowledge/
 
 ---
 
+## Both streams live here
+
+This is a **single wiki holding both product and engineering knowledge**. The
+two streams are distinguished by a `stream` frontmatter field
+(`product | engineering`), **not by folder partition** — the wiki stays flat
+(topics/, entities/, sources/, synthesis/ hold pages from both streams). The
+agent filters on `stream` at save/query time.
+
+Cross-stream `[[wikilinks]]` are first-class: an engineering concept touching a
+product feature links directly, forming an implicit graph visible in any
+markdown graph viewer (e.g. Obsidian). There is no `concepts/` folder and no
+folder partition for streams.
+
+## Source types
+
+Provenance is a **hybrid model** with two source types:
+
+### Blob sources
+- Immutable materialized files in `raw/` (clipped articles, Confluence exports,
+  PDFs, transcripts, conversation snapshots). These get a source page in
+  `wiki/sources/` and are cited as `[[src-<slug>]]`.
+
+### Pointer sources
+- Addresses to things that live elsewhere and are **not** copied in. Cited
+  **inline as typed tokens** with **no source page by default**.
+- **Pointer vocabulary (MVP):**
+  - `commit:<sha>` — a git commit.
+  - `file:<path>#Lstart-Lend` — a file range in the repo.
+  - `issue:<id>` — an issue in the configured issue tracker.
+  - `pr:<num>` — a pull request.
+  - `web:<url>` — a live web address.
+  - `conversation:<date>` — **appears ONLY on conversation-snapshot source
+    pages as a provenance marker, never as a bare inline token on a topic page.**
+
+### Typed-token stored form vs clickable render form
+- The stored citation is the parseable typed token, e.g. `[commit:abc123]`.
+- In prose the agent renders it as a clickable markdown link, e.g.
+  `[\`abc123\`](https://github.com/org/repo/commit/abc123)`.
+- `ws kb lint` does **not** parse or validate typed tokens in MVP.
+
+### Concept-keyed source pages for pointer clusters
+- When a bundle of pointers needs narrative explanation (e.g. the relationship
+  between commits X/Y/Z), the agent writes an **opt-in, concept-keyed** source
+  page at `wiki/sources/src-<concept>-evidence.md`.
+  - Version-controlled text, **stable semantic id** (NOT date-keyed).
+  - Tagged `external` (via frontmatter) where the page is a cluster of external
+    pointers.
+  - Topic pages cite it as `[[src-<concept>-evidence]]` when the whole bundle is
+    the evidence, or cite individual pointers inline when one backs a specific
+    claim.
+- There is **no** `raw/sources/external/` folder — that was rejected (collides
+  with `raw/`'s gitignore, loses claim-level provenance, and date-keys sources).
+
+### Conversation-snapshot resolution
+Conversational evidence is preserved as a **snapshot blob** (consent-gated):
+1. Snapshot blob in `raw/snapshots/<date>-<topic>.md` — **verbatim definition**
+   + **paraphrased narrative** (how the concept surfaced, the back-and-forth).
+   - The load-bearing definition is preserved verbatim; never paraphrase it away.
+   - The surrounding narrative is paraphrased, not a chat-log dump.
+2. Source page `wiki/sources/src-conv-<date>-<topic>.md` — summary + pointer to
+   the snapshot.
+3. Cited from topic pages as `[[src-conv-<date>-<topic>]]`.
+4. The bare `conversation:<date>` pointer lives **only on that source page** as
+   a provenance marker.
+
+### Claim-level provenance
+Each sentence cites the specific commit/file/issue that backs it — never bundle
+evidence behind one link when individual claims come from different sources.
+
+---
+
 ## Page conventions
 
 ### File naming
@@ -70,6 +143,7 @@ Every wiki page begins with YAML frontmatter:
 ```yaml
 ---
 title: Human-Readable Title
+stream: product | engineering   # which stream this page belongs to
 type: topic | entity | source | synthesis
 tags: [revenue, pricing]           # optional, lowercased
 created: 2026-06-23               # ISO date of first creation
@@ -77,6 +151,8 @@ updated: 2026-06-23               # ISO date of last meaningful edit
 sources: [src-notion-pricing-2026] # source page slugs that back this page
 status: draft | active | stale | superseded
 ---
+The `stream` field distinguishes the two streams that coexist in this single
+wiki (no folder partition). See [Both streams live here](#both-streams-live-here).
 ```
 
 ### Linking
@@ -126,6 +202,13 @@ status: draft | active | stale | superseded
 
 ## Operations
 
+> **Agent-performed markdown edits.** Ingest, Query, and Update below are
+> operations the agent performs by editing markdown directly — there is no CLI
+> command for them. The mechanical subset of Lint (orphans + broken
+> `[[wikilinks]]`) is delegated to `ws kb lint` (the CLI); the judgment subset
+> (contradictions, stale claims, missing cross-references,
+> concepts-mentioned-but-pageless) stays with the agent.
+
 ### Ingest — adding a source
 Trigger: the human drops a file into `raw/` (or points to a Confluence page) and
 asks to ingest it. Flow:
@@ -141,6 +224,29 @@ asks to ingest it. Flow:
 
 Prefer ingesting one source at a time and staying involved. Batch-ingest is
 allowed for many sources with lighter supervision — note it in the log.
+
+### Concept capture — proposing a new concept
+The agent notices a concept mentioned without a page (or referenced in work
+but absent from the wiki). Flow:
+1. **Gather** a draft definition + a list of sources where you got it (blob
+   paths, pointers, or both).
+2. **Present the proposal** to the human: the draft definition, the source list,
+   and invite the human to paste additional sources at the gate.
+3. **Consent gate** — a yes/no prompt. On approval, perform the SCHEMA-defined
+   [Ingest](#ingest--adding-a-source) workflow (write the source summary page
+   if needed, create/update topic/entity pages, update `index.md`, append
+   `log.md`).
+
+### Consent gate scope
+The yes/no gate fires **only** on:
+- (a) **new-page creation**, and
+- (b) **contradictions to existing claims** (see [Contradictions](#contradictions)).
+
+**Routine refinement edits** — adding a citation, extending a summary, fixing a
+link — are **ungated** and simply logged in `log.md`. The wiki must not become
+interrupt-heavy. When the evidence behind a proposed concept is a conversation
+(not an external artifact), warn the human explicitly before persisting it (see
+[Conversation-snapshot resolution](#conversation-snapshot-resolution)).
 
 ### Query — answering against the wiki
 Trigger: the human asks a product/domain question. Flow:
@@ -164,10 +270,14 @@ unconfirmed fact or concept not yet backed by a source. Flow:
 Never silently inject an unconfirmed fact into the wiki as if it were sourced.
 
 ### Lint — health-check
-Run periodically (or when the human asks). Look for and report:
+The **mechanical subset** of lint is owned by `ws kb lint` (the CLI): orphans
+(wiki pages with no inbound `[[wikilinks]]`) and broken `[[wikilinks]]` (target
+slug resolves to no page). Run it routinely.
+
+The **judgment subset** is a SCHEMA-defined agent operation (the agent, not the
+CLI). Run periodically (or when the human asks). Look for and report:
 - Contradictions between pages.
 - Stale claims superseded by newer sources.
-- Orphan pages with no inbound `[[wikilinks]]`.
 - Important concepts mentioned but lacking their own page.
 - Missing cross-references.
 - Data gaps worth a web search or a Confluence fetch.
