@@ -477,6 +477,10 @@ async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceE
     // Create catalogs
     ws_catalog::ensure_catalog_dirs(root)?;
 
+    // Scaffold the knowledge base (catalog/knowledge/); skip-by-default
+    // preserves any existing user-edited wiki content on re-runs.
+    ws_kb::scaffold(root, None)?;
+
     // Create example catalog entries if empty
     let services_dir = ws_catalog::get_kind_dir(root, "services");
     if fs::read_dir(&services_dir).map(|d| d.count()).unwrap_or(0) == 0 {
