@@ -22,19 +22,13 @@ pub enum WorkspaceError {
     Git(String),
 
     #[error("Provider error ({provider}): {message}")]
-    Provider {
-        provider: String,
-        message: String,
-    },
+    Provider { provider: String, message: String },
 
     #[error("Workspace creation failed: {0}")]
     Workspace(String),
 
     #[error("Editor error ({editor}): {message}")]
-    Editor {
-        editor: String,
-        message: String,
-    },
+    Editor { editor: String, message: String },
 
     #[error("Command execution error: {0}")]
     Command(String),
@@ -44,6 +38,12 @@ pub enum WorkspaceError {
 
     #[error("Validation failed: {0}")]
     Validation(String),
+
+    #[error("Unknown asset '{requested}'.\nValid names:\n{}", valid.iter().map(|v| format!("  - {v}")).collect::<Vec<_>>().join("\n"))]
+    UnknownAsset {
+        requested: String,
+        valid: Vec<String>,
+    },
 
     #[error("Other error: {0}")]
     Other(String),

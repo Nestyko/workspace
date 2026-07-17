@@ -1,18 +1,18 @@
+use async_trait::async_trait;
 use duct::cmd;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tracing::{info, warn};
+use ws_core::command::AiCommand;
+use ws_core::context::CommandContext;
 use ws_core::error::WorkspaceError;
 use ws_core::models::{
     CreateWorktreeInput, EnsureRepoCacheInput, LockedRepo, ServiceCatalog, Workspace, WorkspaceLock,
 };
 use ws_core::providers::CodeProvider;
-use ws_core::command::AiCommand;
-use ws_core::context::CommandContext;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
 
 pub fn get_workspace_dir(root: &Path, epic_key: &str) -> std::path::PathBuf {
     root.join("workspaces").join(epic_key)
@@ -215,7 +215,10 @@ pub async fn add_service_to_epic_workspace(
         return Ok(());
     }
 
-    info!("Adding service '{}' to workspace {}...", service.id, epic_key);
+    info!(
+        "Adding service '{}' to workspace {}...",
+        service.id, epic_key
+    );
 
     // 1. Ensure cache
     code_provider
@@ -293,7 +296,11 @@ impl AiCommand for WorkspaceCreateCommand {
     type Input = WorkspaceCreateInput;
     type Output = Workspace;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let code_provider = ctx.code_provider.as_ref().ok_or_else(|| {
             WorkspaceError::Config("No code provider configured for workspace creation".to_string())
         })?;
@@ -306,7 +313,9 @@ impl AiCommand for WorkspaceCreateCommand {
 
         let base_branch = input.base_branch.unwrap_or_else(|| "main".to_string());
         let create_branches = input.create_branches.unwrap_or(true);
-        let editor = input.editor.unwrap_or_else(|| ctx.config.editor.default.clone());
+        let editor = input
+            .editor
+            .unwrap_or_else(|| ctx.config.editor.default.clone());
 
         create_epic_workspace(
             &ctx.workspace_root,
@@ -342,7 +351,11 @@ impl AiCommand for WorkspaceAddServiceCommand {
     type Input = WorkspaceAddServiceInput;
     type Output = StatusOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let code_provider = ctx.code_provider.as_ref().ok_or_else(|| {
             WorkspaceError::Config("No code provider configured for adding a service".to_string())
         })?;
@@ -359,7 +372,10 @@ impl AiCommand for WorkspaceAddServiceCommand {
 
         Ok(StatusOutput {
             success: true,
-            message: format!("Service {} added to workspace {}.", input.service_id, input.epic_key),
+            message: format!(
+                "Service {} added to workspace {}.",
+                input.service_id, input.epic_key
+            ),
         })
     }
 }
@@ -397,7 +413,11 @@ impl AiCommand for WorkspaceStatusCommand {
     type Input = WorkspaceGetInput;
     type Output = WorkspaceStatusOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let ws = load_workspace(&ctx.workspace_root, &input.epic_key)?;
         let lock = load_workspace_lock(&ctx.workspace_root, &input.epic_key)?;
 
@@ -414,7 +434,10 @@ impl AiCommand for WorkspaceStatusCommand {
 
             if worktree_dir.exists() {
                 // Get branch name
-                if let Ok(b) = cmd("git", &["rev-parse", "--abbrev-ref", "HEAD"]).dir(&worktree_dir).read() {
+                if let Ok(b) = cmd("git", &["rev-parse", "--abbrev-ref", "HEAD"])
+                    .dir(&worktree_dir)
+                    .read()
+                {
                     branch = b.trim().to_string();
                 }
                 // Get current commit
@@ -422,22 +445,30 @@ impl AiCommand for WorkspaceStatusCommand {
                     current_commit = c.trim().to_string();
                 }
                 // Check local changes
-                if let Ok(status) = cmd("git", &["status", "--porcelain"]).dir(&worktree_dir).read() {
+                if let Ok(status) = cmd("git", &["status", "--porcelain"])
+                    .dir(&worktree_dir)
+                    .read()
+                {
                     has_changes = !status.trim().is_empty();
                 }
             }
 
-            let baseline_commit = lock.repos.get(service_id)
+            let baseline_commit = lock
+                .repos
+                .get(service_id)
                 .map(|r| r.baseline_commit.clone())
                 .unwrap_or_else(|| "unknown".to_string());
 
-            repo_statuses.insert(service_id.clone(), RepoStatus {
-                service_id: service_id.clone(),
-                branch,
-                current_commit,
-                baseline_commit,
-                has_changes,
-            });
+            repo_statuses.insert(
+                service_id.clone(),
+                RepoStatus {
+                    service_id: service_id.clone(),
+                    branch,
+                    current_commit,
+                    baseline_commit,
+                    has_changes,
+                },
+            );
         }
 
         Ok(WorkspaceStatusOutput {
@@ -460,7 +491,11 @@ impl AiCommand for WorkspaceLockCommand {
     type Input = WorkspaceGetInput;
     type Output = WorkspaceLock;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         load_workspace_lock(&ctx.workspace_root, &input.epic_key)
     }
 }
@@ -474,7 +509,11 @@ impl AiCommand for WorkspaceGenerateEditorFilesCommand {
     type Input = WorkspaceGetInput;
     type Output = StatusOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let ws = load_workspace(&ctx.workspace_root, &input.epic_key)?;
         generate_code_workspace(&ctx.workspace_root, &input.epic_key, &ws.services)?;
         Ok(StatusOutput {

@@ -82,11 +82,16 @@ pub struct RepoRunCommand;
 #[async_trait]
 impl AiCommand for RepoRunCommand {
     const ID: &'static str = "repo.run";
-    const DESCRIPTION: &'static str = "Deterministic single-command executor (exit or serve+poll). Never runs deploy.";
+    const DESCRIPTION: &'static str =
+        "Deterministic single-command executor (exit or serve+poll). Never runs deploy.";
     type Input = RepoRunInput;
     type Output = RepoRunOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let service = get_service(&ctx.workspace_root, &input.service_id)?;
         let repo_root = Path::new(&input.repo_path);
         if !repo_root.exists() {
@@ -211,7 +216,9 @@ fn run_serve(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| WorkspaceError::Command(format!("failed to spawn serve '{}': {}", serve_cmd, e)))?;
+        .map_err(|e| {
+            WorkspaceError::Command(format!("failed to spawn serve '{}': {}", serve_cmd, e))
+        })?;
 
     let stdout = child.stdout.take().expect("piped stdout");
     let stderr = child.stderr.take().expect("piped stderr");
@@ -346,7 +353,10 @@ impl ChildWaitTimeoutExt for std::process::Child {
                 return Ok(status);
             }
             if start.elapsed() >= timeout {
-                return Err(std::io::Error::new(std::io::ErrorKind::TimedOut, "timed out"));
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "timed out",
+                ));
             }
             thread::sleep(Duration::from_millis(100));
         }

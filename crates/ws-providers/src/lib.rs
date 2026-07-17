@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -8,13 +8,13 @@ use ws_core::command::AiCommand;
 use ws_core::context::CommandContext;
 use ws_core::error::WorkspaceError;
 use ws_core::models::{
-    AuthStatus, Comment, CreateEpicInput, CreateIssueInput, CreatePullRequestInput,
-    Issue, LinkIssuesInput, ListRecentReposInput, PullRequest, PushBranchInput, RepoDetails,
-    RepoRef, RepoSummary, UpdateIssueInput, Workspace,
+    AuthStatus, Comment, CreateEpicInput, CreateIssueInput, CreatePullRequestInput, Issue,
+    LinkIssuesInput, ListRecentReposInput, PullRequest, PushBranchInput, RepoDetails, RepoRef,
+    RepoSummary, UpdateIssueInput, Workspace,
 };
 
 // Re-export provider traits from core
-pub use ws_core::providers::{CodeProvider, IssueProvider, DocProvider};
+pub use ws_core::providers::{CodeProvider, DocProvider, IssueProvider};
 
 // ==========================================
 // AI Command: provider.code.check_auth
@@ -24,14 +24,20 @@ pub struct ProviderCodeCheckAuthCommand;
 #[async_trait]
 impl AiCommand for ProviderCodeCheckAuthCommand {
     const ID: &'static str = "provider.code.check_auth";
-    const DESCRIPTION: &'static str = "Check authentication status with the configured code provider.";
+    const DESCRIPTION: &'static str =
+        "Check authentication status with the configured code provider.";
     type Input = crate::EmptyInput;
     type Output = AuthStatus;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let code_provider = ctx.code_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No code provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let code_provider = ctx
+            .code_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No code provider configured".to_string()))?;
         code_provider.check_auth().await
     }
 }
@@ -48,10 +54,15 @@ impl AiCommand for ProviderCodeListRecentReposCommand {
     type Input = ListRecentReposInput;
     type Output = Vec<RepoSummary>;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let code_provider = ctx.code_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No code provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let code_provider = ctx
+            .code_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No code provider configured".to_string()))?;
         code_provider.list_recent_repos(input).await
     }
 }
@@ -68,10 +79,15 @@ impl AiCommand for ProviderCodeGetRepoCommand {
     type Input = RepoRef;
     type Output = RepoDetails;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let code_provider = ctx.code_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No code provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let code_provider = ctx
+            .code_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No code provider configured".to_string()))?;
         code_provider.get_repo(input).await
     }
 }
@@ -84,14 +100,20 @@ pub struct ProviderIssueCheckAuthCommand;
 #[async_trait]
 impl AiCommand for ProviderIssueCheckAuthCommand {
     const ID: &'static str = "provider.issue.check_auth";
-    const DESCRIPTION: &'static str = "Check authentication status with the configured issue provider.";
+    const DESCRIPTION: &'static str =
+        "Check authentication status with the configured issue provider.";
     type Input = crate::EmptyInput;
     type Output = AuthStatus;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let issue_provider = ctx.issue_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No issue provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let issue_provider = ctx
+            .issue_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No issue provider configured".to_string()))?;
         issue_provider.check_auth().await
     }
 }
@@ -113,10 +135,15 @@ impl AiCommand for ProviderIssueGetIssueCommand {
     type Input = ProviderIssueGetInput;
     type Output = Issue;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let issue_provider = ctx.issue_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No issue provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let issue_provider = ctx
+            .issue_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No issue provider configured".to_string()))?;
         issue_provider.get_issue(&input.key).await
     }
 }
@@ -133,10 +160,15 @@ impl AiCommand for ProviderIssueCreateEpicCommand {
     type Input = CreateEpicInput;
     type Output = Issue;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let issue_provider = ctx.issue_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No issue provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let issue_provider = ctx
+            .issue_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No issue provider configured".to_string()))?;
         issue_provider.create_epic(input).await
     }
 }
@@ -153,10 +185,15 @@ impl AiCommand for ProviderIssueCreateIssueCommand {
     type Input = CreateIssueInput;
     type Output = Issue;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let issue_provider = ctx.issue_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No issue provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let issue_provider = ctx
+            .issue_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No issue provider configured".to_string()))?;
         issue_provider.create_issue(input).await
     }
 }
@@ -173,10 +210,15 @@ impl AiCommand for ProviderIssueLinkCommand {
     type Input = LinkIssuesInput;
     type Output = StatusOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let issue_provider = ctx.issue_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No issue provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let issue_provider = ctx
+            .issue_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No issue provider configured".to_string()))?;
         issue_provider.link_issues(input).await?;
         Ok(StatusOutput {
             success: true,
@@ -203,10 +245,15 @@ impl AiCommand for ProviderIssueCommentCommand {
     type Input = ProviderIssueCommentInput;
     type Output = StatusOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let issue_provider = ctx.issue_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No issue provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let issue_provider = ctx
+            .issue_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No issue provider configured".to_string()))?;
         issue_provider.add_comment(&input.key, &input.body).await?;
         Ok(StatusOutput {
             success: true,
@@ -223,14 +270,20 @@ pub struct ProviderDocCheckAuthCommand;
 #[async_trait]
 impl AiCommand for ProviderDocCheckAuthCommand {
     const ID: &'static str = "provider.doc.check_auth";
-    const DESCRIPTION: &'static str = "Check authentication status with the configured doc provider.";
+    const DESCRIPTION: &'static str =
+        "Check authentication status with the configured doc provider.";
     type Input = crate::EmptyInput;
     type Output = AuthStatus;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let doc_provider = ctx.doc_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No doc provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let doc_provider = ctx
+            .doc_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No doc provider configured".to_string()))?;
         doc_provider.check_auth().await
     }
 }
@@ -258,10 +311,15 @@ impl AiCommand for ProviderDocGetPageCommand {
     type Input = ProviderDocGetPageInput;
     type Output = ProviderDocGetPageOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let doc_provider = ctx.doc_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No doc provider configured".to_string())
-        })?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let doc_provider = ctx
+            .doc_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No doc provider configured".to_string()))?;
         let content = doc_provider.get_page(&input.space, &input.title).await?;
         Ok(ProviderDocGetPageOutput { content })
     }
@@ -291,11 +349,18 @@ impl AiCommand for ProviderDocCreatePageCommand {
     type Input = ProviderDocCreatePageInput;
     type Output = ProviderDocCreatePageOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let doc_provider = ctx.doc_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No doc provider configured".to_string())
-        })?;
-        let page_id = doc_provider.create_page(&input.space, &input.title, &input.body).await?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let doc_provider = ctx
+            .doc_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No doc provider configured".to_string()))?;
+        let page_id = doc_provider
+            .create_page(&input.space, &input.title, &input.body)
+            .await?;
         Ok(ProviderDocCreatePageOutput { page_id })
     }
 }
@@ -319,11 +384,18 @@ impl AiCommand for ProviderDocUpdatePageCommand {
     type Input = ProviderDocUpdatePageInput;
     type Output = StatusOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let doc_provider = ctx.doc_provider.as_ref().ok_or_else(|| {
-            WorkspaceError::Config("No doc provider configured".to_string())
-        })?;
-        doc_provider.update_page(&input.page_id, &input.title, &input.body).await?;
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let doc_provider = ctx
+            .doc_provider
+            .as_ref()
+            .ok_or_else(|| WorkspaceError::Config("No doc provider configured".to_string()))?;
+        doc_provider
+            .update_page(&input.page_id, &input.title, &input.body)
+            .await?;
         Ok(StatusOutput {
             success: true,
             message: "Documentation page updated successfully.".to_string(),
@@ -350,15 +422,24 @@ pub struct ProviderConfigGetInstructionsCommand;
 #[async_trait]
 impl AiCommand for ProviderConfigGetInstructionsCommand {
     const ID: &'static str = "provider.config.get_instructions";
-    const DESCRIPTION: &'static str = "Retrieve custom instruction guidelines (e.g. AGENT.md equivalent) for a provider.";
+    const DESCRIPTION: &'static str =
+        "Retrieve custom instruction guidelines (e.g. AGENT.md equivalent) for a provider.";
     type Input = ProviderConfigGetInstructionsInput;
     type Output = ProviderConfigGetInstructionsOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let root = &ctx.workspace_root;
         let paths_to_try = vec![
-            root.join("config").join("providers").join(format!("{}.md", input.provider_id)),
-            root.join(".ws").join("providers").join(format!("{}.md", input.provider_id)),
+            root.join("config")
+                .join("providers")
+                .join(format!("{}.md", input.provider_id)),
+            root.join(".ws")
+                .join("providers")
+                .join(format!("{}.md", input.provider_id)),
         ];
 
         for path in paths_to_try {
@@ -409,7 +490,11 @@ impl AiCommand for ProviderConfigSyncInstructionsCommand {
     type Input = ProviderConfigSyncInstructionsInput;
     type Output = ProviderConfigSyncInstructionsOutput;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let root = &ctx.workspace_root;
         let body = generate_company_agents_md(root);
 
@@ -454,7 +539,9 @@ fn generate_company_agents_md(root: &Path) -> String {
     s.push_str("5. **Always Validate:** Before committing new catalogs, run `ws ai run catalog.validate --input '{}'` to ensure parsing schemas are fully respected.\n\n");
 
     s.push_str("## Workflow Rules\n\n");
-    s.push_str("Refer to the workflows documented under `workflows/` for step-by-step processes:\n");
+    s.push_str(
+        "Refer to the workflows documented under `workflows/` for step-by-step processes:\n",
+    );
     let workflows_dir = root.join("workflows");
     let mut workflows: Vec<String> = Vec::new();
     if let Ok(entries) = fs::read_dir(&workflows_dir) {
@@ -469,7 +556,10 @@ fn generate_company_agents_md(root: &Path) -> String {
     }
     workflows.sort();
     for stem in &workflows {
-        s.push_str(&format!("  - [workflows/{}.md](workflows/{}.md)\n", stem, stem));
+        s.push_str(&format!(
+            "  - [workflows/{}.md](workflows/{}.md)\n",
+            stem, stem
+        ));
     }
     s.push('\n');
 
@@ -484,9 +574,18 @@ fn generate_company_agents_md(root: &Path) -> String {
     let svc = count_yaml(&root.join("catalog/services"));
     let prod = count_yaml(&root.join("catalog/products"));
     let team = count_yaml(&root.join("catalog/teams"));
-    s.push_str(&format!("- Services: {} registered under `catalog/services/`\n", svc));
-    s.push_str(&format!("- Products: {} registered under `catalog/products/`\n", prod));
-    s.push_str(&format!("- Teams: {} registered under `catalog/teams/`\n", team));
+    s.push_str(&format!(
+        "- Services: {} registered under `catalog/services/`\n",
+        svc
+    ));
+    s.push_str(&format!(
+        "- Products: {} registered under `catalog/products/`\n",
+        prod
+    ));
+    s.push_str(&format!(
+        "- Teams: {} registered under `catalog/teams/`\n",
+        team
+    ));
     s.push_str("\n");
 
     s.push_str("## Product Knowledge Base\n\n");
@@ -563,17 +662,23 @@ pub struct PrCreateCommand;
 #[async_trait]
 impl AiCommand for PrCreateCommand {
     const ID: &'static str = "pr.create";
-    const DESCRIPTION: &'static str = "Create pull requests for changes in the workspace repositories.";
+    const DESCRIPTION: &'static str =
+        "Create pull requests for changes in the workspace repositories.";
     type Input = PrCreateInput;
     type Output = PrCreateOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let code_provider = ctx.code_provider.as_ref().ok_or_else(|| {
             WorkspaceError::Config("No code provider configured for PR creation".to_string())
         })?;
 
         // Load workspace directly to avoid cyclic dependencies
-        let ws_path = ctx.workspace_root
+        let ws_path = ctx
+            .workspace_root
             .join("workspaces")
             .join(&input.workspace_id)
             .join("workspace.yaml");
@@ -634,7 +739,9 @@ impl AiCommand for PrCreateCommand {
                     "Created Pull Request for **{}**: {}\n(Branch: `{}`)",
                     service_id, pr.url, branch_name
                 );
-                let _ = issue_provider.add_comment(&input.workspace_id, &comment_body).await;
+                let _ = issue_provider
+                    .add_comment(&input.workspace_id, &comment_body)
+                    .await;
             }
         }
 

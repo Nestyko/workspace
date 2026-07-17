@@ -48,7 +48,11 @@ impl AiCommand for RepoFixLoopPromptCommand {
     type Input = RepoFixLoopPromptInput;
     type Output = RepoFixLoopPromptOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let service = get_service(&ctx.workspace_root, &input.service_id)?;
         let commands: HashMap<&str, &str> = LOOP_COMMANDS
             .iter()

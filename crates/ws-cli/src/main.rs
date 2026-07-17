@@ -9,20 +9,20 @@ use tracing_subscriber::EnvFilter;
 
 use std::fs;
 
-use ws_core::command::{CommandRegistry, AiCommand};
+use ws_core::command::{AiCommand, CommandRegistry};
 use ws_core::context::CommandContext;
+use ws_core::editors::EditorAdapter;
 use ws_core::error::WorkspaceError;
 use ws_core::models::{
-    CatalogDoc, CatalogIssueTracking, CatalogRepo, LocalConfig, ServiceCatalog,
-    ProductCatalog, TeamCatalog, ProductAgent, ProductServices, Workspace,
+    CatalogDoc, CatalogIssueTracking, CatalogRepo, LocalConfig, ProductAgent, ProductCatalog,
+    ProductServices, ServiceCatalog, TeamCatalog, Workspace,
 };
-use ws_core::providers::{CodeProvider, IssueProvider, DocProvider};
-use ws_core::editors::EditorAdapter;
+use ws_core::providers::{CodeProvider, DocProvider, IssueProvider};
 
 // Provider imports
 use ws_provider_github_gh::GitHubGhProvider;
-use ws_provider_jira::JiraProvider;
 use ws_provider_jira::confluence::ConfluenceProvider;
+use ws_provider_jira::JiraProvider;
 
 // Editor imports
 use ws_editors::{
@@ -34,8 +34,7 @@ use ws_catalog::{
     CatalogProductAddCommand, CatalogProductGetCommand, CatalogProductListCommand,
     CatalogServiceAddCommand, CatalogServiceGetCommand, CatalogServiceListCommand,
     CatalogServiceUpdateCommand, CatalogTeamAddCommand, CatalogTeamGetCommand,
-    CatalogTeamListCommand, CatalogValidateCommand,
-    ContextResolveCommand,
+    CatalogTeamListCommand, CatalogValidateCommand, ContextResolveCommand,
 };
 
 // Workspace imports
@@ -53,13 +52,11 @@ use ws_repo::{
 // Provider command imports
 use ws_providers::{
     PrCreateCommand, ProviderCodeCheckAuthCommand, ProviderCodeGetRepoCommand,
-    ProviderCodeListRecentReposCommand, ProviderIssueCheckAuthCommand,
-    ProviderIssueCommentCommand, ProviderIssueCreateEpicCommand, ProviderIssueCreateIssueCommand,
-    ProviderIssueGetIssueCommand, ProviderIssueLinkCommand,
-    ProviderDocCheckAuthCommand, ProviderDocGetPageCommand,
-    ProviderDocCreatePageCommand, ProviderDocUpdatePageCommand,
-    ProviderConfigGetInstructionsCommand,
-    ProviderConfigSyncInstructionsCommand,
+    ProviderCodeListRecentReposCommand, ProviderConfigGetInstructionsCommand,
+    ProviderConfigSyncInstructionsCommand, ProviderDocCheckAuthCommand,
+    ProviderDocCreatePageCommand, ProviderDocGetPageCommand, ProviderDocUpdatePageCommand,
+    ProviderIssueCheckAuthCommand, ProviderIssueCommentCommand, ProviderIssueCreateEpicCommand,
+    ProviderIssueCreateIssueCommand, ProviderIssueGetIssueCommand, ProviderIssueLinkCommand,
 };
 
 #[derive(Parser, Clone, Debug)]
@@ -181,7 +178,13 @@ enum PrSub {
 #[derive(Subcommand, Clone, Debug)]
 enum KbSub {
     #[command(about = "Scaffold the knowledge-base tree from embedded assets (skip-by-default)")]
-    Init,
+    Init {
+        #[arg(
+            long,
+            help = "Refresh a single embedded asset by relative path (e.g. SCHEMA.md)"
+        )]
+        reset: Option<String>,
+    },
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -234,9 +237,8 @@ async fn main() -> miette::Result<()> {
         .ok();
 
     // Find Workspace Root
-    let workspace_root = ws_config::find_workspace_root().unwrap_or_else(|| {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-    });
+    let workspace_root = ws_config::find_workspace_root()
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
 
     // Load Local Config
     let config = ws_config::load_config(&workspace_root).unwrap_or_default();
@@ -250,7 +252,8 @@ async fn main() -> miette::Result<()> {
         _ => None,
     };
 
-    let issue_provider: Option<Arc<dyn IssueProvider>> = match config.issue_provider.r#type.as_str() {
+    let issue_provider: Option<Arc<dyn IssueProvider>> = match config.issue_provider.r#type.as_str()
+    {
         "jira" => Some(Arc::new(JiraProvider::new(
             config.issue_provider.base_url.clone(),
             config.issue_provider.default_project.clone(),
@@ -258,15 +261,17 @@ async fn main() -> miette::Result<()> {
         _ => None,
     };
 
-    let doc_provider: Option<Arc<dyn DocProvider>> = config.doc_provider.as_ref().and_then(|doc_cfg| {
-        match doc_cfg.r#type.as_str() {
-            "confluence" => Some(Arc::new(ConfluenceProvider::new(
-                doc_cfg.base_url.clone(),
-                doc_cfg.default_space.clone(),
-            )) as Arc<dyn DocProvider>),
-            _ => None,
-        }
-    });
+    let doc_provider: Option<Arc<dyn DocProvider>> =
+        config
+            .doc_provider
+            .as_ref()
+            .and_then(|doc_cfg| match doc_cfg.r#type.as_str() {
+                "confluence" => Some(Arc::new(ConfluenceProvider::new(
+                    doc_cfg.base_url.clone(),
+                    doc_cfg.default_space.clone(),
+                )) as Arc<dyn DocProvider>),
+                _ => None,
+            });
 
     // Setup Editor Adapters
     let mut editor_adapters: HashMap<String, Arc<dyn EditorAdapter>> = HashMap::new();
@@ -379,36 +384,76 @@ async fn run_cli(
 async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceError> {
     println!("Welcome to AI Workspace.\n");
 
-    let issue_provider = Select::new("Select issue provider:", vec!["Jira", "Linear (coming soon)", "GitHub (coming soon)"]).prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let issue_provider = Select::new(
+        "Select issue provider:",
+        vec!["Jira", "Linear (coming soon)", "GitHub (coming soon)"],
+    )
+    .prompt()
+    .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
     if issue_provider != "Jira" {
-        return Err(WorkspaceError::Other("Only Jira issue provider is currently supported.".to_string()));
+        return Err(WorkspaceError::Other(
+            "Only Jira issue provider is currently supported.".to_string(),
+        ));
     }
 
-    let code_provider = Select::new("Select code provider:", vec!["GitHub via gh", "GitLab (coming soon)", "Bitbucket (coming soon)"]).prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let code_provider = Select::new(
+        "Select code provider:",
+        vec![
+            "GitHub via gh",
+            "GitLab (coming soon)",
+            "Bitbucket (coming soon)",
+        ],
+    )
+    .prompt()
+    .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
     if code_provider != "GitHub via gh" {
-        return Err(WorkspaceError::Other("Only GitHub via gh is currently supported.".to_string()));
+        return Err(WorkspaceError::Other(
+            "Only GitHub via gh is currently supported.".to_string(),
+        ));
     }
 
-    let default_editor = Select::new("Select default editor:", vec!["cursor", "vscode", "zed", "vim"]).prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let default_editor = Select::new(
+        "Select default editor:",
+        vec!["cursor", "vscode", "zed", "vim"],
+    )
+    .prompt()
+    .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
-    let default_owner = Text::new("GitHub organization/user:").prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let default_owner = Text::new("GitHub organization/user:")
+        .prompt()
+        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
-    let jira_base_url = Text::new("Jira Base URL (e.g. https://example.atlassian.net):").prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let jira_base_url = Text::new("Jira Base URL (e.g. https://example.atlassian.net):")
+        .prompt()
+        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
-    let jira_project = Text::new("Jira Default Project Key:").prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let jira_project = Text::new("Jira Default Project Key:")
+        .prompt()
+        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
-    let confluence_base_url = Text::new("Confluence Base URL (e.g. https://example.atlassian.net):").prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let confluence_base_url =
+        Text::new("Confluence Base URL (e.g. https://example.atlassian.net):")
+            .prompt()
+            .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
-    let confluence_space = Text::new("Confluence Default Space Key:").prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let confluence_space = Text::new("Confluence Default Space Key:")
+        .prompt()
+        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
     // Validate GH Auth
     println!("\nValidating GitHub auth through gh...");
     let gh_provider = GitHubGhProvider::new(Some(default_owner.clone()), Some("ssh".to_string()));
     let auth = gh_provider.check_auth().await?;
     if auth.authenticated {
-        println!("✓ GitHub authentication successful. Username: {}", auth.username.unwrap_or_default());
+        println!(
+            "✓ GitHub authentication successful. Username: {}",
+            auth.username.unwrap_or_default()
+        );
     } else {
-        println!("⚠ GitHub authentication failed: {}", auth.details.unwrap_or_default());
+        println!(
+            "⚠ GitHub authentication failed: {}",
+            auth.details.unwrap_or_default()
+        );
     }
 
     // Build configuration
@@ -424,7 +469,10 @@ async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceE
     });
 
     ws_config::save_config(root, &new_config)?;
-    println!("\nSaved config to {}", ws_config::get_config_path(root).display());
+    println!(
+        "\nSaved config to {}",
+        ws_config::get_config_path(root).display()
+    );
 
     // Create catalogs
     ws_catalog::ensure_catalog_dirs(root)?;
@@ -491,7 +539,11 @@ docs:
         ws_catalog::add_team(root, &sample_team)?;
     }
 
-    let start_discovery = Confirm::new("Would you like to discover repositories to add to the catalog?").with_default(true).prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    let start_discovery =
+        Confirm::new("Would you like to discover repositories to add to the catalog?")
+            .with_default(true)
+            .prompt()
+            .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
     if start_discovery {
         let temp_ctx = CommandContext::new(
@@ -511,19 +563,9 @@ docs:
 
 fn handle_kb(root: &Path, kb_sub: KbSub) -> Result<(), WorkspaceError> {
     match kb_sub {
-        KbSub::Init => {
-            let report = ws_kb::scaffold(root)?;
-            println!("Knowledge base scaffold:");
-            let mut written = 0;
-            let mut skipped = 0;
-            for a in &report.assets {
-                println!("  {:<10} {}", format!("{:?}", a.status).to_lowercase(), a.path);
-                match a.status {
-                    ws_kb::AssetStatus::Written => written += 1,
-                    ws_kb::AssetStatus::Skipped => skipped += 1,
-                }
-            }
-            println!("\n{} written, {} skipped.", written, skipped);
+        KbSub::Init { reset } => {
+            let summary = ws_kb::run_init(root, reset.as_deref())?;
+            println!("{summary}");
         }
     }
     Ok(())
@@ -536,7 +578,10 @@ fn handle_config(
 ) -> Result<(), WorkspaceError> {
     match sub {
         None | Some(ConfigSub::Get) => {
-            println!("Config Path: {}", ws_config::get_config_path(root).display());
+            println!(
+                "Config Path: {}",
+                ws_config::get_config_path(root).display()
+            );
             let yaml = serde_yaml::to_string(config).map_err(WorkspaceError::Yaml)?;
             println!("\n{}", yaml);
         }
@@ -582,7 +627,10 @@ fn handle_config(
                     new_config.doc_provider.as_mut().unwrap().default_space = Some(value.clone());
                 }
                 _ => {
-                    return Err(WorkspaceError::Config(format!("Unknown configuration key: {}", key)));
+                    return Err(WorkspaceError::Config(format!(
+                        "Unknown configuration key: {}",
+                        key
+                    )));
                 }
             }
             ws_config::save_config(root, &new_config)?;
@@ -605,10 +653,12 @@ async fn handle_discover(
     let mut page = 1;
     loop {
         println!("Fetching updated repositories (Page {})...", page);
-        let repos = code_provider.list_recent_repos(ws_core::models::ListRecentReposInput {
-            limit: Some(limit_val),
-            page: Some(page),
-        }).await?;
+        let repos = code_provider
+            .list_recent_repos(ws_core::models::ListRecentReposInput {
+                limit: Some(limit_val),
+                page: Some(page),
+            })
+            .await?;
 
         if repos.is_empty() {
             println!("No repositories found.");
@@ -626,7 +676,10 @@ async fn handle_discover(
                     id: repo.name.clone(),
                     name: repo.name.clone(),
                     kind: "service".to_string(),
-                    description: repo.description.clone().unwrap_or_else(|| format!("Service for {}", repo.name)),
+                    description: repo
+                        .description
+                        .clone()
+                        .unwrap_or_else(|| format!("Service for {}", repo.name)),
                     team: "platform".to_string(),
                     products: vec![],
                     repo: CatalogRepo {
@@ -646,7 +699,12 @@ async fn handle_discover(
                     },
                     issue_tracking: CatalogIssueTracking {
                         provider: "jira".to_string(),
-                        project: ctx.config.issue_provider.default_project.clone().unwrap_or_else(|| "PLATFORM".to_string()),
+                        project: ctx
+                            .config
+                            .issue_provider
+                            .default_project
+                            .clone()
+                            .unwrap_or_else(|| "PLATFORM".to_string()),
                         component: None,
                     },
                     docs: vec![CatalogDoc {
@@ -657,11 +715,17 @@ async fn handle_discover(
                     deploy: None,
                 };
                 ws_catalog::add_service(root, &service)?;
-                println!("✓ Added service {} to catalog/services/{}.yaml", repo.name, repo.name);
+                println!(
+                    "✓ Added service {} to catalog/services/{}.yaml",
+                    repo.name, repo.name
+                );
             }
         }
 
-        let next = Confirm::new(&format!("Show next {} repositories?", limit_val)).with_default(false).prompt().map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+        let next = Confirm::new(&format!("Show next {} repositories?", limit_val))
+            .with_default(false)
+            .prompt()
+            .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
         if !next {
             break;
         }
@@ -685,23 +749,37 @@ async fn handle_add(
             let (owner, repo_name) = if parts.len() == 2 {
                 (parts[0].to_string(), parts[1].to_string())
             } else {
-                let default_owner = ctx.config.code_provider.default_owner.clone().ok_or_else(|| {
-                    WorkspaceError::Validation("Specify full name <owner>/<repo> or set default code-owner config.".to_string())
-                })?;
+                let default_owner =
+                    ctx.config
+                        .code_provider
+                        .default_owner
+                        .clone()
+                        .ok_or_else(|| {
+                            WorkspaceError::Validation(
+                            "Specify full name <owner>/<repo> or set default code-owner config."
+                                .to_string(),
+                        )
+                        })?;
                 (default_owner, name)
             };
 
             println!("Resolving repository info for {}/{}...", owner, repo_name);
-            let details = code_provider.get_repo(ws_core::models::RepoRef {
-                owner: owner.clone(),
-                name: repo_name.clone(),
-            }).await?;
+            let details = code_provider
+                .get_repo(ws_core::models::RepoRef {
+                    owner: owner.clone(),
+                    name: repo_name.clone(),
+                })
+                .await?;
 
             let service = ServiceCatalog {
                 id: details.summary.name.clone(),
                 name: details.summary.name.clone(),
                 kind: "service".to_string(),
-                description: details.summary.description.clone().unwrap_or_else(|| format!("Service for {}", details.summary.name)),
+                description: details
+                    .summary
+                    .description
+                    .clone()
+                    .unwrap_or_else(|| format!("Service for {}", details.summary.name)),
                 team: "platform".to_string(),
                 products: vec![],
                 repo: CatalogRepo {
@@ -721,7 +799,12 @@ async fn handle_add(
                 },
                 issue_tracking: CatalogIssueTracking {
                     provider: "jira".to_string(),
-                    project: ctx.config.issue_provider.default_project.clone().unwrap_or_else(|| "PLATFORM".to_string()),
+                    project: ctx
+                        .config
+                        .issue_provider
+                        .default_project
+                        .clone()
+                        .unwrap_or_else(|| "PLATFORM".to_string()),
                     component: None,
                 },
                 docs: vec![CatalogDoc {
@@ -732,7 +815,10 @@ async fn handle_add(
                 deploy: None,
             };
             ws_catalog::add_service(root, &service)?;
-            println!("✓ Added service {} to catalog/services/{}.yaml", details.summary.name, details.summary.name);
+            println!(
+                "✓ Added service {} to catalog/services/{}.yaml",
+                details.summary.name, details.summary.name
+            );
         }
         AddSub::Product { name } => {
             let product = ProductCatalog {
@@ -752,7 +838,10 @@ async fn handle_add(
                 routing_rules: vec![],
             };
             ws_catalog::add_product(root, &product)?;
-            println!("✓ Added product {} to catalog/products/{}.yaml", name, product.id);
+            println!(
+                "✓ Added product {} to catalog/products/{}.yaml",
+                name, product.id
+            );
         }
         AddSub::Team { name } => {
             let team = TeamCatalog {
@@ -832,7 +921,9 @@ async fn handle_status(
         }
         Some(key) => {
             let cmd = WorkspaceStatusCommand;
-            let output = cmd.run(ctx, ws_workspace::WorkspaceGetInput { epic_key: key }).await?;
+            let output = cmd
+                .run(ctx, ws_workspace::WorkspaceGetInput { epic_key: key })
+                .await?;
             println!("Workspace status for epic {}:", output.epic_key);
             println!("  Base branch: {}", output.base_branch);
             println!("  Created branches: {}", output.create_branches);
@@ -842,7 +933,14 @@ async fn handle_status(
                 println!("  - service: {}", service_id);
                 println!("    branch:  {}", status.branch);
                 println!("    current: {}", status.current_commit);
-                println!("    changes: {}", if status.has_changes { "Yes (uncommitted files)" } else { "No" });
+                println!(
+                    "    changes: {}",
+                    if status.has_changes {
+                        "Yes (uncommitted files)"
+                    } else {
+                        "No"
+                    }
+                );
             }
         }
     }
@@ -860,29 +958,41 @@ async fn handle_pr(ctx: CommandContext, pr_sub: PrSub) -> Result<(), WorkspaceEr
             let services = if let Some(s) = service {
                 vec![s]
             } else if all {
-                let ws_path = ctx.workspace_root
+                let ws_path = ctx
+                    .workspace_root
                     .join("workspaces")
                     .join(&epic_key)
                     .join("workspace.yaml");
                 if !ws_path.exists() {
-                    return Err(WorkspaceError::NotFound(format!("Workspace {} not found", epic_key)));
+                    return Err(WorkspaceError::NotFound(format!(
+                        "Workspace {} not found",
+                        epic_key
+                    )));
                 }
                 let content = fs::read_to_string(ws_path)?;
                 let ws: Workspace = serde_yaml::from_str(&content)?;
                 ws.services
             } else {
-                return Err(WorkspaceError::Validation("Specify --service <name> or --all to create Pull Requests.".to_string()));
+                return Err(WorkspaceError::Validation(
+                    "Specify --service <name> or --all to create Pull Requests.".to_string(),
+                ));
             };
 
             println!("Creating Pull Requests for epic {}...", epic_key);
             let cmd = PrCreateCommand;
-            let output = cmd.run(ctx, ws_providers::PrCreateInput {
-                workspace_id: epic_key,
-                services,
-                title: format!("[PR] Work for epic"),
-                body: "Pull request generated automatically via AI Workspace CLI.".to_string(),
-                draft,
-            }).await?;
+            let output = cmd
+                .run(
+                    ctx,
+                    ws_providers::PrCreateInput {
+                        workspace_id: epic_key,
+                        services,
+                        title: format!("[PR] Work for epic"),
+                        body: "Pull request generated automatically via AI Workspace CLI."
+                            .to_string(),
+                        draft,
+                    },
+                )
+                .await?;
 
             println!("\nPull requests successfully created:");
             for (svc_id, url) in output.prs {
@@ -916,18 +1026,16 @@ async fn handle_ai(
             let pretty = serde_json::to_string_pretty(&manifest)?;
             println!("{}", pretty);
         }
-        AiSub::Docs { docs_sub } => {
-            match docs_sub {
-                AiDocsSub::Generate => {
-                    let docs_md = ws_ai_docs::generate_command_docs(registry);
-                    let docs_dir = ctx.workspace_root.join("docs");
-                    fs::create_dir_all(&docs_dir)?;
-                    let path = docs_dir.join("command-api.md");
-                    fs::write(&path, docs_md)?;
-                    println!("✓ Documentation generated at {}", path.display());
-                }
+        AiSub::Docs { docs_sub } => match docs_sub {
+            AiDocsSub::Generate => {
+                let docs_md = ws_ai_docs::generate_command_docs(registry);
+                let docs_dir = ctx.workspace_root.join("docs");
+                fs::create_dir_all(&docs_dir)?;
+                let path = docs_dir.join("command-api.md");
+                fs::write(&path, docs_md)?;
+                println!("✓ Documentation generated at {}", path.display());
             }
-        }
+        },
         AiSub::Schema { command_id, kind } => {
             let cmd = registry.get(&command_id).ok_or_else(|| {
                 WorkspaceError::NotFound(format!("Command '{}' not found", command_id))
@@ -937,7 +1045,9 @@ async fn handle_ai(
             } else if kind == "output" {
                 cmd.output_schema()
             } else {
-                return Err(WorkspaceError::Validation("Specify 'input' or 'output' schema kind.".to_string()));
+                return Err(WorkspaceError::Validation(
+                    "Specify 'input' or 'output' schema kind.".to_string(),
+                ));
             };
             let pretty = serde_json::to_string_pretty(&schema)?;
             println!("{}", pretty);
@@ -948,7 +1058,10 @@ async fn handle_ai(
             })?;
 
             if !input.exists() {
-                return Err(WorkspaceError::NotFound(format!("Input file '{}' not found", input.display())));
+                return Err(WorkspaceError::NotFound(format!(
+                    "Input file '{}' not found",
+                    input.display()
+                )));
             }
 
             let input_content = fs::read_to_string(input)?;
@@ -967,6 +1080,7 @@ async fn handle_ai(
 #[cfg(test)]
 mod kb_cli_tests {
     use super::*;
+    use std::fs as stdfs;
     use tempfile::TempDir;
 
     /// Smoke test: `ws kb init` dispatches to ws-kb::scaffold and writes the
@@ -976,10 +1090,13 @@ mod kb_cli_tests {
     #[test]
     fn ws_kb_init_scaffolds_the_tree() {
         let tmp = TempDir::new().unwrap();
-        handle_kb(tmp.path(), KbSub::Init).unwrap();
+        handle_kb(tmp.path(), KbSub::Init { reset: None }).unwrap();
 
         let kb_root = tmp.path().join("catalog").join("knowledge");
-        assert!(kb_root.is_dir(), "catalog/knowledge/ should exist after ws kb init");
+        assert!(
+            kb_root.is_dir(),
+            "catalog/knowledge/ should exist after ws kb init"
+        );
         assert!(
             kb_root.join("SCHEMA.md").is_file(),
             "SCHEMA.md should be scaffolded"
@@ -998,7 +1115,72 @@ mod kb_cli_tests {
         assert!(cli.is_ok(), "ws kb init should parse: {:?}", cli.err());
         assert!(matches!(
             cli.unwrap().command,
-            Commands::Kb { kb_sub: KbSub::Init }
+            Commands::Kb {
+                kb_sub: KbSub::Init { reset: None }
+            }
         ));
+    }
+
+    #[test]
+    fn kb_init_reset_subcommand_parses() {
+        let cli = Cli::try_parse_from(["ws", "kb", "init", "--reset", "SCHEMA.md"]);
+        assert!(cli.is_ok(), "ws kb init --reset SCHEMA.md should parse");
+        assert!(matches!(
+            cli.unwrap().command,
+            Commands::Kb {
+                kb_sub: KbSub::Init {
+                    reset: Some(ref s)
+                }
+            } if s == "SCHEMA.md"
+        ));
+    }
+
+    #[test]
+    fn ws_kb_init_reset_refreshes_named_asset() {
+        let tmp = TempDir::new().unwrap();
+        handle_kb(tmp.path(), KbSub::Init { reset: None }).unwrap();
+        let kb_root = tmp.path().join("catalog").join("knowledge");
+
+        let target = "SCHEMA.md";
+        let target_path = kb_root.join(target);
+        let mutant = b"# mutated schema\n";
+        stdfs::write(&target_path, mutant).unwrap();
+
+        handle_kb(
+            tmp.path(),
+            KbSub::Init {
+                reset: Some(target.to_string()),
+            },
+        )
+        .unwrap();
+
+        let embedded_bytes = ws_kb::KB_ASSETS.get_file(target).unwrap().contents();
+        assert_eq!(
+            stdfs::read(&target_path).unwrap().as_slice(),
+            embedded_bytes,
+            "reset should rewrite SCHEMA.md with embedded bytes"
+        );
+    }
+
+    #[test]
+    fn ws_kb_init_reset_unknown_name_errors_with_valid_list() {
+        let tmp = TempDir::new().unwrap();
+        let err = handle_kb(
+            tmp.path(),
+            KbSub::Init {
+                reset: Some("bogus".to_string()),
+            },
+        )
+        .unwrap_err();
+
+        let msg = err.to_string();
+        assert!(
+            msg.contains("bogus"),
+            "error should mention the requested asset name: {msg}"
+        );
+        assert!(
+            msg.contains("SCHEMA.md"),
+            "error should list a valid asset name: {msg}"
+        );
     }
 }

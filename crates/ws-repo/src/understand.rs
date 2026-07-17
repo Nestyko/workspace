@@ -50,11 +50,16 @@ pub struct RepoUnderstandVerifyCommand;
 #[async_trait]
 impl AiCommand for RepoUnderstandVerifyCommand {
     const ID: &'static str = "repo.understand.verify";
-    const DESCRIPTION: &'static str = "Verify Point #1 (Understand-Anything): artifact present + Action green + PR merged.";
+    const DESCRIPTION: &'static str =
+        "Verify Point #1 (Understand-Anything): artifact present + Action green + PR merged.";
     type Input = RepoUnderstandVerifyInput;
     type Output = RepoUnderstandVerifyOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let service = get_service(&ctx.workspace_root, &input.service_id)?;
         let repo_root = Path::new(&input.repo_path);
         if !repo_root.exists() {
@@ -106,7 +111,8 @@ impl AiCommand for RepoUnderstandVerifyCommand {
         };
 
         // (ii) Action run green.
-        let workflow_run_green = check_workflow_green(repo_root, input.pr_number, input.run_id, &mut evidence)?;
+        let workflow_run_green =
+            check_workflow_green(repo_root, input.pr_number, input.run_id, &mut evidence)?;
 
         // (iii) PR merged.
         let pr_merged = check_pr_merged(repo_root, input.pr_number, &mut evidence)?;
@@ -126,15 +132,15 @@ impl AiCommand for RepoUnderstandVerifyCommand {
 }
 
 fn run_gh(args: &[&str], cwd: &Path) -> Result<String, WorkspaceError> {
-    cmd("gh", args)
-        .dir(cwd)
-        .read()
-        .map_err(|e| {
-            WorkspaceError::provider(
-                "github-gh",
-                format!("gh {:?} failed: {} (is gh installed and authenticated?)", args, e),
-            )
-        })
+    cmd("gh", args).dir(cwd).read().map_err(|e| {
+        WorkspaceError::provider(
+            "github-gh",
+            format!(
+                "gh {:?} failed: {} (is gh installed and authenticated?)",
+                args, e
+            ),
+        )
+    })
 }
 
 fn check_workflow_green(
@@ -145,7 +151,13 @@ fn check_workflow_green(
 ) -> Result<bool, WorkspaceError> {
     if let Some(rid) = run_id {
         let out = run_gh(
-            &["run", "view", &rid.to_string(), "--json", "status,conclusion"],
+            &[
+                "run",
+                "view",
+                &rid.to_string(),
+                "--json",
+                "status,conclusion",
+            ],
             cwd,
         )?;
         let v: serde_json::Value = serde_json::from_str(&out).map_err(|e| {
@@ -154,13 +166,25 @@ fn check_workflow_green(
         let status = v.get("status").and_then(|s| s.as_str()).unwrap_or("");
         let conclusion = v.get("conclusion").and_then(|s| s.as_str()).unwrap_or("");
         let green = status == "completed" && conclusion == "success";
-        evidence.push_str(&format!("run {}: status={} conclusion={} -> {}; ", rid, status, conclusion, yn(green)));
+        evidence.push_str(&format!(
+            "run {}: status={} conclusion={} -> {}; ",
+            rid,
+            status,
+            conclusion,
+            yn(green)
+        ));
         return Ok(green);
     }
 
     // Fallback: inspect PR checks for an understand-anything-named check.
     let out = run_gh(
-        &["pr", "checks", &pr_number.to_string(), "--json", "name,state"],
+        &[
+            "pr",
+            "checks",
+            &pr_number.to_string(),
+            "--json",
+            "name,state",
+        ],
         cwd,
     )?;
     let v: serde_json::Value = serde_json::from_str(&out).map_err(|e| {
@@ -186,9 +210,19 @@ fn check_workflow_green(
     Ok(green)
 }
 
-fn check_pr_merged(cwd: &Path, pr_number: u64, evidence: &mut String) -> Result<bool, WorkspaceError> {
+fn check_pr_merged(
+    cwd: &Path,
+    pr_number: u64,
+    evidence: &mut String,
+) -> Result<bool, WorkspaceError> {
     let out = run_gh(
-        &["pr", "view", &pr_number.to_string(), "--json", "state,merged"],
+        &[
+            "pr",
+            "view",
+            &pr_number.to_string(),
+            "--json",
+            "state,merged",
+        ],
         cwd,
     )?;
     let v: serde_json::Value = serde_json::from_str(&out).map_err(|e| {
@@ -197,10 +231,20 @@ fn check_pr_merged(cwd: &Path, pr_number: u64, evidence: &mut String) -> Result<
     let state = v.get("state").and_then(|s| s.as_str()).unwrap_or("");
     let merged = v.get("merged").and_then(|b| b.as_bool()).unwrap_or(false);
     let ok = merged && state.eq_ignore_ascii_case("closed");
-    evidence.push_str(&format!("PR #{}: state={} merged={} -> {}; ", pr_number, state, merged, yn(ok)));
+    evidence.push_str(&format!(
+        "PR #{}: state={} merged={} -> {}; ",
+        pr_number,
+        state,
+        merged,
+        yn(ok)
+    ));
     Ok(ok)
 }
 
 fn yn(b: bool) -> &'static str {
-    if b { "ok" } else { "no" }
+    if b {
+        "ok"
+    } else {
+        "no"
+    }
 }

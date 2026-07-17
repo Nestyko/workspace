@@ -19,7 +19,11 @@ pub trait IssueProvider: Send + Sync {
 
     async fn create_issue(&self, input: CreateIssueInput) -> Result<Issue, WorkspaceError>;
 
-    async fn update_issue(&self, key: &str, input: UpdateIssueInput) -> Result<Issue, WorkspaceError>;
+    async fn update_issue(
+        &self,
+        key: &str,
+        input: UpdateIssueInput,
+    ) -> Result<Issue, WorkspaceError>;
 
     async fn link_issues(&self, input: LinkIssuesInput) -> Result<(), WorkspaceError>;
 
@@ -39,9 +43,13 @@ pub trait CodeProvider: Send + Sync {
 
     async fn get_repo(&self, input: RepoRef) -> Result<RepoDetails, WorkspaceError>;
 
-    async fn ensure_repo_cache(&self, input: EnsureRepoCacheInput) -> Result<RepoCache, WorkspaceError>;
+    async fn ensure_repo_cache(
+        &self,
+        input: EnsureRepoCacheInput,
+    ) -> Result<RepoCache, WorkspaceError>;
 
-    async fn create_worktree(&self, input: CreateWorktreeInput) -> Result<Worktree, WorkspaceError>;
+    async fn create_worktree(&self, input: CreateWorktreeInput)
+        -> Result<Worktree, WorkspaceError>;
 
     async fn push_branch(&self, input: PushBranchInput) -> Result<(), WorkspaceError>;
 

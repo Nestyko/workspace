@@ -6,8 +6,9 @@ use std::path::Path;
 use tracing::{info, warn};
 use ws_core::error::WorkspaceError;
 use ws_core::models::{
-    AuthStatus, CreatePullRequestInput, CreateWorktreeInput, EnsureRepoCacheInput, ListRecentReposInput,
-    PullRequest, PushBranchInput, RepoCache, RepoDetails, RepoRef, RepoSummary, Worktree,
+    AuthStatus, CreatePullRequestInput, CreateWorktreeInput, EnsureRepoCacheInput,
+    ListRecentReposInput, PullRequest, PushBranchInput, RepoCache, RepoDetails, RepoRef,
+    RepoSummary, Worktree,
 };
 use ws_core::providers::CodeProvider;
 
@@ -15,7 +16,8 @@ pub struct GitHubGhProvider {
     pub default_owner: Option<String>,
     pub protocol: String, // "ssh" or "https"
     #[cfg(test)]
-    pub mock_runner: Option<std::sync::Arc<dyn Fn(&[&str]) -> Result<String, WorkspaceError> + Send + Sync>>,
+    pub mock_runner:
+        Option<std::sync::Arc<dyn Fn(&[&str]) -> Result<String, WorkspaceError> + Send + Sync>>,
 }
 
 impl GitHubGhProvider {
@@ -93,11 +95,12 @@ impl CodeProvider for GitHubGhProvider {
         match status {
             Ok(output) if output.status.success() => {
                 // Try to get current username using gh api user
-                let username = if let Ok(user_json) = self.run_gh(&["api", "user", "--jq", ".login"], None) {
-                    Some(user_json.trim().to_string())
-                } else {
-                    None
-                };
+                let username =
+                    if let Ok(user_json) = self.run_gh(&["api", "user", "--jq", ".login"], None) {
+                        Some(user_json.trim().to_string())
+                    } else {
+                        None
+                    };
                 Ok(AuthStatus {
                     authenticated: true,
                     username,
@@ -107,7 +110,9 @@ impl CodeProvider for GitHubGhProvider {
             _ => Ok(AuthStatus {
                 authenticated: false,
                 username: None,
-                details: Some("GitHub CLI not authenticated. Please run 'gh auth login'.".to_string()),
+                details: Some(
+                    "GitHub CLI not authenticated. Please run 'gh auth login'.".to_string(),
+                ),
             }),
         }
     }
@@ -224,7 +229,10 @@ impl CodeProvider for GitHubGhProvider {
                 // Parse and build HTTPS URL if needed, or fallback to the provided URL
                 &input.url
             };
-            self.run_git(&["clone", "--bare", repo_url, &cache_path.to_string_lossy()], None)?;
+            self.run_git(
+                &["clone", "--bare", repo_url, &cache_path.to_string_lossy()],
+                None,
+            )?;
         }
 
         Ok(RepoCache {
@@ -232,7 +240,10 @@ impl CodeProvider for GitHubGhProvider {
         })
     }
 
-    async fn create_worktree(&self, input: CreateWorktreeInput) -> Result<Worktree, WorkspaceError> {
+    async fn create_worktree(
+        &self,
+        input: CreateWorktreeInput,
+    ) -> Result<Worktree, WorkspaceError> {
         let cache_path = Path::new(".cache")
             .join("repos")
             .join(&input.owner)
@@ -251,7 +262,10 @@ impl CodeProvider for GitHubGhProvider {
             .join(&input.service_id);
 
         if worktree_dir.exists() {
-            warn!("Worktree path {} already exists, using it.", worktree_dir.display());
+            warn!(
+                "Worktree path {} already exists, using it.",
+                worktree_dir.display()
+            );
             return Ok(Worktree {
                 path: worktree_dir.to_string_lossy().to_string(),
                 service_id: input.service_id,
@@ -264,8 +278,15 @@ impl CodeProvider for GitHubGhProvider {
         // Run git worktree add
         // git --git-dir=<cache_path> worktree add -b <branch> <worktree_dir> <base_branch>
         // First ensure latest updates are fetched in cache
-        self.run_git(&["fetch", "origin", &format!("{}:{}", input.base_branch, input.base_branch)], Some(&cache_path))
-            .unwrap_or_default(); // ignore fetch failure if branch is already up-to-date locally
+        self.run_git(
+            &[
+                "fetch",
+                "origin",
+                &format!("{}:{}", input.base_branch, input.base_branch),
+            ],
+            Some(&cache_path),
+        )
+        .unwrap_or_default(); // ignore fetch failure if branch is already up-to-date locally
 
         let worktree_path_str = worktree_dir.to_string_lossy().to_string();
         info!(
@@ -276,7 +297,16 @@ impl CodeProvider for GitHubGhProvider {
         );
 
         // Check if branch already exists in the bare repo cache
-        let branch_exists = self.run_git(&["show-ref", "--verify", &format!("refs/heads/{}", input.branch)], Some(&cache_path)).is_ok();
+        let branch_exists = self
+            .run_git(
+                &[
+                    "show-ref",
+                    "--verify",
+                    &format!("refs/heads/{}", input.branch),
+                ],
+                Some(&cache_path),
+            )
+            .is_ok();
 
         if branch_exists {
             // Just add worktree checking out the existing branch
@@ -340,7 +370,10 @@ impl CodeProvider for GitHubGhProvider {
 
         // Run git push origin <branch> inside the worktree dir
         // We can use -u to set upstream
-        self.run_git(&["push", "-u", "origin", &input.branch], Some(&worktree_dir))?;
+        self.run_git(
+            &["push", "-u", "origin", &input.branch],
+            Some(&worktree_dir),
+        )?;
 
         Ok(())
     }
@@ -404,8 +437,8 @@ impl CodeProvider for GitHubGhProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ws_core::models::ListRecentReposInput;
     use std::sync::Arc;
+    use ws_core::models::ListRecentReposInput;
 
     fn make_mock_repos(count: usize) -> String {
         let repos: Vec<serde_json::Value> = (1..=count)
@@ -437,10 +470,13 @@ mod tests {
                 Ok(make_mock_repos(50))
             })),
         };
-        let res = provider.list_recent_repos(ListRecentReposInput {
-            limit: None,
-            page: None,
-        }).await.unwrap();
+        let res = provider
+            .list_recent_repos(ListRecentReposInput {
+                limit: None,
+                page: None,
+            })
+            .await
+            .unwrap();
         assert_eq!(res.len(), 50);
         assert_eq!(res[0].name, "repo1");
         assert_eq!(res[49].name, "repo50");
@@ -459,10 +495,13 @@ mod tests {
                 Ok(make_mock_repos(20))
             })),
         };
-        let res = provider.list_recent_repos(ListRecentReposInput {
-            limit: Some(10),
-            page: Some(2),
-        }).await.unwrap();
+        let res = provider
+            .list_recent_repos(ListRecentReposInput {
+                limit: Some(10),
+                page: Some(2),
+            })
+            .await
+            .unwrap();
         assert_eq!(res.len(), 10);
         assert_eq!(res[0].name, "repo11");
         assert_eq!(res[9].name, "repo20");

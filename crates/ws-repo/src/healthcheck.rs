@@ -100,7 +100,11 @@ impl AiCommand for RepoHealthcheckCommand {
     type Input = RepoHealthcheckInput;
     type Output = RepoHealthcheckOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let service = get_service(&ctx.workspace_root, &input.service_id)?;
         let repo_root = Path::new(&input.repo_path);
         if !repo_root.exists() {
@@ -248,15 +252,13 @@ fn check_understand_anything(
     };
 
     let workflows_dir = repo_root.join(".github/workflows");
-    let named_workflow_ok = [".yml", ".yaml"]
-        .iter()
-        .any(|ext| {
-            // .with_extension replaces the extension; build the path explicitly instead.
-            let mut p = repo_root.join(".github/workflows/understand-anything");
-            let mut s = p.into_os_string();
-            s.push(ext);
-            Path::new(&s).exists()
-        });
+    let named_workflow_ok = [".yml", ".yaml"].iter().any(|ext| {
+        // .with_extension replaces the extension; build the path explicitly instead.
+        let mut p = repo_root.join(".github/workflows/understand-anything");
+        let mut s = p.into_os_string();
+        s.push(ext);
+        Path::new(&s).exists()
+    });
     let workflow_ok = named_workflow_ok || dir_has_workflow_mention(workflows_dir);
 
     let artifact_ok = repo_root
@@ -294,9 +296,14 @@ fn dir_has_workflow_mention(dir: std::path::PathBuf) -> bool {
     if let Ok(entries) = fs::read_dir(&dir) {
         for e in entries.flatten() {
             let p = e.path();
-            if p.extension().and_then(|x| x.to_str()).map_or(false, |x| x == "yml" || x == "yaml") {
+            if p.extension()
+                .and_then(|x| x.to_str())
+                .map_or(false, |x| x == "yml" || x == "yaml")
+            {
                 if let Ok(content) = fs::read_to_string(&p) {
-                    if content.contains("understand-anything") || content.contains("understand_anything") {
+                    if content.contains("understand-anything")
+                        || content.contains("understand_anything")
+                    {
                         return true;
                     }
                 }
@@ -308,10 +315,7 @@ fn dir_has_workflow_mention(dir: std::path::PathBuf) -> bool {
 
 // ---- #2 README (structural) ----
 
-fn check_readme(
-    service: &ws_core::models::ServiceCatalog,
-    repo_root: &Path,
-) -> HealthcheckRow {
+fn check_readme(service: &ws_core::models::ServiceCatalog, repo_root: &Path) -> HealthcheckRow {
     // Resolve the README path from the catalog declaration if present, else README.md.
     let declared = service
         .docs
@@ -323,19 +327,32 @@ fn check_readme(
     let path = repo_root.join(&declared);
     let exists = path.exists();
     let (status, evidence) = if !exists {
-        (CheckStatus::Missing, format!("file not found at {}", declared))
+        (
+            CheckStatus::Missing,
+            format!("file not found at {}", declared),
+        )
     } else {
         match fs::read_to_string(&path) {
-            Err(e) => (CheckStatus::Missing, format!("unreadable {}: {}", declared, e)),
-            Ok(content) if content.trim().is_empty() => {
-                (CheckStatus::Partial, format!("{} exists but is empty", declared))
-            }
+            Err(e) => (
+                CheckStatus::Missing,
+                format!("unreadable {}: {}", declared, e),
+            ),
+            Ok(content) if content.trim().is_empty() => (
+                CheckStatus::Partial,
+                format!("{} exists but is empty", declared),
+            ),
             Ok(content) => {
                 let has_heading = content.lines().any(|l| l.trim_start().starts_with("# "));
                 if has_heading {
-                    (CheckStatus::Present, format!("{} exists, non-empty, ≥1 `#` heading", declared))
+                    (
+                        CheckStatus::Present,
+                        format!("{} exists, non-empty, ≥1 `#` heading", declared),
+                    )
                 } else {
-                    (CheckStatus::Partial, format!("{} exists but no `#` heading", declared))
+                    (
+                        CheckStatus::Partial,
+                        format!("{} exists but no `#` heading", declared),
+                    )
                 }
             }
         }
@@ -352,13 +369,17 @@ fn check_readme(
 
 // ---- #3 AGENT.md / CLAUDE.md (informational only, never blocks) ----
 
-fn check_agent_doc(
-    service: &ws_core::models::ServiceCatalog,
-    repo_root: &Path,
-) -> HealthcheckRow {
-    let agent_docs: Vec<_> = service.docs.iter().filter(|d| d.r#type == "agent").collect();
+fn check_agent_doc(service: &ws_core::models::ServiceCatalog, repo_root: &Path) -> HealthcheckRow {
+    let agent_docs: Vec<_> = service
+        .docs
+        .iter()
+        .filter(|d| d.r#type == "agent")
+        .collect();
     let (status, evidence) = if agent_docs.is_empty() {
-        (CheckStatus::NotDeclared, "no docs entry with type: agent".to_string())
+        (
+            CheckStatus::NotDeclared,
+            "no docs entry with type: agent".to_string(),
+        )
     } else {
         let paths: Vec<String> = agent_docs.iter().map(|d| d.path.clone()).collect();
         let on_disk: Vec<String> = paths
@@ -366,7 +387,11 @@ fn check_agent_doc(
             .filter(|p| repo_root.join(p).exists())
             .cloned()
             .collect();
-        let ev = format!("declared agent docs: [{}]; present on disk: [{}]", paths.join(", "), on_disk.join(", "));
+        let ev = format!(
+            "declared agent docs: [{}]; present on disk: [{}]",
+            paths.join(", "),
+            on_disk.join(", ")
+        );
         (CheckStatus::Declared, ev)
     };
     HealthcheckRow {
@@ -392,10 +417,17 @@ fn check_command_declared(
     let (status, evidence) = if service.commands.contains_key(key) {
         (
             CheckStatus::Declared,
-            format!("commands.{} = `{}`", key, service.commands.get(key).unwrap()),
+            format!(
+                "commands.{} = `{}`",
+                key,
+                service.commands.get(key).unwrap()
+            ),
         )
     } else {
-        (CheckStatus::NotDeclared, format!("commands.{} not declared", key))
+        (
+            CheckStatus::NotDeclared,
+            format!("commands.{} not declared", key),
+        )
     };
     HealthcheckRow {
         check_id: id.into(),
@@ -452,12 +484,14 @@ fn check_run_locally(service: &ws_core::models::ServiceCatalog) -> HealthcheckRo
 fn check_deploy(service: &ws_core::models::ServiceCatalog) -> HealthcheckRow {
     let (status, evidence) = match &service.deploy {
         None => (CheckStatus::NotDeclared, "deploy not declared".to_string()),
-        Some(DeployConfig::Command(cmd)) => {
-            (CheckStatus::Declared, format!("deploy = `{}`", cmd))
-        }
+        Some(DeployConfig::Command(cmd)) => (CheckStatus::Declared, format!("deploy = `{}`", cmd)),
         Some(DeployConfig::Skip { skip, reason }) => (
             CheckStatus::Declared,
-            format!("deploy.skip = {} reason = {}", skip, reason.as_deref().unwrap_or("(none)")),
+            format!(
+                "deploy.skip = {} reason = {}",
+                skip,
+                reason.as_deref().unwrap_or("(none)")
+            ),
         ),
     };
     HealthcheckRow {
@@ -471,5 +505,9 @@ fn check_deploy(service: &ws_core::models::ServiceCatalog) -> HealthcheckRow {
 }
 
 fn yn(b: bool) -> &'static str {
-    if b { "yes" } else { "no" }
+    if b {
+        "yes"
+    } else {
+        "no"
+    }
 }
