@@ -178,4 +178,100 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn scaffold_skips_existing_files_on_rerun() {
+        // First run: full scaffold.
+        let tmp = TempDir::new().unwrap();
+        let first = scaffold(tmp.path()).unwrap();
+        assert!(first.assets.iter().all(|a| a.status == AssetStatus::Written));
+
+        // Simulate user edits: overwrite a couple of scaffolded files with
+        // bespoke content. A re-run must NOT touch them.
+        let kb_root = tmp.path().join("catalog").join("knowledge");
+        let edited_rel = "wiki/index.md";
+        let edited_path = kb_root.join(edited_rel);
+        let user_content = b"# My bespoke wiki index\nNothing to see here.\n";
+        stdfs::write(&edited_path, user_content).unwrap();
+        let other_edited = kb_root.join("SCHEMA.md");
+        let other_user_content = b"# bespoke schema\n";
+        stdfs::write(&other_edited, other_user_content).unwrap();
+
+        // Second run: every asset should be Skipped.
+        let second = scaffold(tmp.path()).unwrap();
+        assert_eq!(
+            second.assets.len(),
+            first.assets.len(),
+            "re-run should report the same asset set as the first run"
+        );
+        assert!(
+            second.assets.iter().all(|a| a.status == AssetStatus::Skipped),
+            "re-run on a fully-populated tree should mark every asset as Skipped"
+        );
+
+        // User-edited content is byte-for-byte preserved.
+        assert_eq!(
+            stdfs::read(&edited_path).unwrap().as_slice(),
+            user_content,
+            "user-edited wiki/index.md must be untouched on re-run"
+        );
+        assert_eq!(
+            stdfs::read(&other_edited).unwrap().as_slice(),
+            other_user_content,
+            "user-edited SCHEMA.md must be untouched on re-run"
+        );
+    }
+
+    #[test]
+    fn scaffold_fills_only_missing_files_on_partial_tree() {
+        let tmp = TempDir::new().unwrap();
+        // Pre-populate one file with user content and leave the rest missing.
+        let kb_root = tmp.path().join("catalog").join("knowledge");
+        stdfs::create_dir_all(kb_root.join("wiki")).unwrap();
+        let pre_existing_rel = "wiki/index.md";
+        let user_content = b"# pre-existing user content\n";
+        stdfs::write(kb_root.join(pre_existing_rel), user_content).unwrap();
+
+        let report = scaffold(tmp.path()).unwrap();
+
+        // Every embedded file appears in the report.
+        let embedded = embedded_files();
+        assert_eq!(report.assets.len(), embedded.len());
+
+        // The pre-existing one is Skipped; all others are Written.
+        let pre = report
+            .assets
+            .iter()
+            .find(|a| a.path == pre_existing_rel)
+            .unwrap_or_else(|| panic!("pre-existing asset {pre_existing_rel} missing from report"));
+        assert_eq!(pre.status, AssetStatus::Skipped);
+        assert!(
+            report
+                .assets
+                .iter()
+                .filter(|a| a.path != pre_existing_rel)
+                .all(|a| a.status == AssetStatus::Written),
+            "all other assets should be Written (gaps filled)"
+        );
+
+        // Pre-existing user content untouched.
+        assert_eq!(
+            stdfs::read(kb_root.join(pre_existing_rel)).unwrap().as_slice(),
+            user_content,
+            "pre-existing user content must be byte-for-byte unchanged"
+        );
+
+        // And the previously-missing files now exist and match embedded bytes.
+        for (rel, embedded_bytes) in &embedded {
+            if rel == &pre_existing_rel {
+                continue;
+            }
+            let on_disk = kb_root.join(rel);
+            assert_eq!(
+                stdfs::read(&on_disk).unwrap().as_slice(),
+                *embedded_bytes,
+                "missing file {rel} should now match embedded bytes"
+            );
+        }
+    }
 }
