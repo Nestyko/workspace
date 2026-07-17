@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# Pre-commit formatter (Rust).
+#
+# Formats only the staged `.rs` files and re-stages them so the formatted
+# output is included in the commit automatically, with no user prompt.
+#
+# * Scoped: never runs `cargo fmt --all` — only the files already staged.
+# * Best-effort: if rustfmt is unavailable, the commit proceeds unchanged.
+# * Fails the commit only if rustfmt itself errors on a staged file.
+
+set -euo pipefail
+
+# Staged Rust files (added/copied/modified/renamed). Deleted files are
+# intentionally excluded so we never try to format a missing path.
+files=()
+while IFS= read -r f; do
+  # Only include files that still exist on disk.
+  [[ -f "$f" ]] && files+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR -- '*.rs')
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+if ! command -v rustfmt >/dev/null 2>&1; then
+  echo "pre-commit: rustfmt not found on PATH; skipping format." >&2
+  exit 0
+fi
+
+# Format each staged file individually (edition pinned to match the workspace).
+# rustfmt formats in place; we then re-stage whatever changed.
+rc=0
+for f in "${files[@]}"; do
+  if ! rustfmt --edition 2021 "$f" >/dev/null 2>&1; then
+    echo "pre-commit: rustfmt failed on $f" >&2
+    rc=1
+    continue
+  fi
+done
+
+# Re-stage any files rustfmt touched, so the formatted bytes ship in the commit.
+git add -- "${files[@]}" >/dev/null 2>&1 || true
+
+exit "$rc"
