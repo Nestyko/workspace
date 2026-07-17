@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 use ws_core::error::WorkspaceError;
 use ws_core::models::{
-    AuthStatus, Comment, CreateEpicInput, CreateIssueInput, Issue, LinkIssuesInput, UpdateIssueInput,
+    AuthStatus, Comment, CreateEpicInput, CreateIssueInput, Issue, LinkIssuesInput,
+    UpdateIssueInput,
 };
 use ws_core::providers::IssueProvider;
 
 pub mod confluence;
 pub use confluence::ConfluenceProvider;
-
 
 pub struct JiraProvider {
     pub base_url: Option<String>,
@@ -53,9 +53,9 @@ impl JiraProvider {
     }
 
     fn client(&self) -> Result<reqwest::Client, WorkspaceError> {
-        reqwest::Client::builder().build().map_err(|e| {
-            WorkspaceError::provider("jira", format!("Failed to build client: {}", e))
-        })
+        reqwest::Client::builder()
+            .build()
+            .map_err(|e| WorkspaceError::provider("jira", format!("Failed to build client: {}", e)))
     }
 }
 
@@ -110,7 +110,9 @@ impl IssueProvider for JiraProvider {
             return Ok(AuthStatus {
                 authenticated: true,
                 username: Some("jira-mock-user".to_string()),
-                details: Some("Jira provider running in mock mode (credentials missing)".to_string()),
+                details: Some(
+                    "Jira provider running in mock mode (credentials missing)".to_string(),
+                ),
             });
         }
 
@@ -151,7 +153,9 @@ impl IssueProvider for JiraProvider {
             return Ok(Issue {
                 key: key.to_string(),
                 summary: format!("Mock Issue: Implement Slack notifications"),
-                description: Some("Please build Slack notification templates and retries.".to_string()),
+                description: Some(
+                    "Please build Slack notification templates and retries.".to_string(),
+                ),
                 status: "To Do".to_string(),
                 issue_type: "Task".to_string(),
                 assignee: Some("mock-assignee".to_string()),
@@ -160,14 +164,20 @@ impl IssueProvider for JiraProvider {
         }
 
         let base_url = self.base_url.as_ref().unwrap();
-        let url = format!("{}/rest/api/3/issue/{}", base_url.trim_end_matches('/'), key);
+        let url = format!(
+            "{}/rest/api/3/issue/{}",
+            base_url.trim_end_matches('/'),
+            key
+        );
         let client = self.client()?;
         let response = client
             .get(&url)
             .headers(self.get_headers()?)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("jira", format!("Failed to fetch issue: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("jira", format!("Failed to fetch issue: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(
@@ -232,7 +242,9 @@ impl IssueProvider for JiraProvider {
             .json(&body)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("jira", format!("Failed to create epic: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("jira", format!("Failed to create epic: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(
@@ -293,7 +305,9 @@ impl IssueProvider for JiraProvider {
             .json(&body)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("jira", format!("Failed to create issue: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("jira", format!("Failed to create issue: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(
@@ -313,14 +327,22 @@ impl IssueProvider for JiraProvider {
         self.get_issue(&resp.key).await
     }
 
-    async fn update_issue(&self, key: &str, input: UpdateIssueInput) -> Result<Issue, WorkspaceError> {
+    async fn update_issue(
+        &self,
+        key: &str,
+        input: UpdateIssueInput,
+    ) -> Result<Issue, WorkspaceError> {
         if self.is_mock() {
             info!("Jira update_issue '{}' (Mock)", key);
             return self.get_issue(key).await;
         }
 
         let base_url = self.base_url.as_ref().unwrap();
-        let url = format!("{}/rest/api/3/issue/{}", base_url.trim_end_matches('/'), key);
+        let url = format!(
+            "{}/rest/api/3/issue/{}",
+            base_url.trim_end_matches('/'),
+            key
+        );
 
         let mut update_fields = serde_json::json!({});
         if let Some(summary) = input.summary {
@@ -336,7 +358,9 @@ impl IssueProvider for JiraProvider {
             .json(&body)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("jira", format!("Failed to update issue: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("jira", format!("Failed to update issue: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(
@@ -379,7 +403,9 @@ impl IssueProvider for JiraProvider {
             .json(&body)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("jira", format!("Failed to link issues: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("jira", format!("Failed to link issues: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(
@@ -398,7 +424,11 @@ impl IssueProvider for JiraProvider {
         }
 
         let base_url = self.base_url.as_ref().unwrap();
-        let url = format!("{}/rest/api/3/issue/{}/comment", base_url.trim_end_matches('/'), key);
+        let url = format!(
+            "{}/rest/api/3/issue/{}/comment",
+            base_url.trim_end_matches('/'),
+            key
+        );
 
         let json_body = serde_json::json!({
             "body": {
@@ -425,7 +455,9 @@ impl IssueProvider for JiraProvider {
             .json(&json_body)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("jira", format!("Failed to add comment: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("jira", format!("Failed to add comment: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(

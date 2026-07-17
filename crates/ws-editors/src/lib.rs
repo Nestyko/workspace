@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 use duct::cmd;
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tracing::info;
-use ws_core::error::WorkspaceError;
-use ws_core::editors::EditorAdapter;
 use ws_core::command::AiCommand;
 use ws_core::context::CommandContext;
+use ws_core::editors::EditorAdapter;
+use ws_core::error::WorkspaceError;
 use ws_core::models::{OpenServiceInput, OpenWorkspaceInput};
 
 pub struct CursorEditorAdapter;
@@ -23,7 +23,10 @@ impl EditorAdapter for CursorEditorAdapter {
     }
 
     async fn is_available(&self) -> Result<bool, WorkspaceError> {
-        let result = cmd("cursor", &["--version"]).stdout_null().stderr_null().run();
+        let result = cmd("cursor", &["--version"])
+            .stdout_null()
+            .stderr_null()
+            .run();
         Ok(result.is_ok())
     }
 
@@ -32,9 +35,11 @@ impl EditorAdapter for CursorEditorAdapter {
             .join(&input.epic_key)
             .join(format!("{}.code-workspace", input.epic_key));
         info!("Opening workspace with Cursor: {}", path.display());
-        cmd("cursor", &[path.to_string_lossy().into_owned()]).run().map_err(|e| {
-            WorkspaceError::editor("cursor", format!("Failed to open workspace: {}", e))
-        })?;
+        cmd("cursor", &[path.to_string_lossy().into_owned()])
+            .run()
+            .map_err(|e| {
+                WorkspaceError::editor("cursor", format!("Failed to open workspace: {}", e))
+            })?;
         Ok(())
     }
 
@@ -43,10 +48,16 @@ impl EditorAdapter for CursorEditorAdapter {
             .join(&input.epic_key)
             .join("repos")
             .join(&input.service_id);
-        info!("Opening service '{}' with Cursor: {}", input.service_id, path.display());
-        cmd("cursor", &[path.to_string_lossy().into_owned()]).run().map_err(|e| {
-            WorkspaceError::editor("cursor", format!("Failed to open service: {}", e))
-        })?;
+        info!(
+            "Opening service '{}' with Cursor: {}",
+            input.service_id,
+            path.display()
+        );
+        cmd("cursor", &[path.to_string_lossy().into_owned()])
+            .run()
+            .map_err(|e| {
+                WorkspaceError::editor("cursor", format!("Failed to open service: {}", e))
+            })?;
         Ok(())
     }
 }
@@ -64,7 +75,10 @@ impl EditorAdapter for VSCodeEditorAdapter {
     }
 
     async fn is_available(&self) -> Result<bool, WorkspaceError> {
-        let result = cmd("code", &["--version"]).stdout_null().stderr_null().run();
+        let result = cmd("code", &["--version"])
+            .stdout_null()
+            .stderr_null()
+            .run();
         Ok(result.is_ok())
     }
 
@@ -73,9 +87,11 @@ impl EditorAdapter for VSCodeEditorAdapter {
             .join(&input.epic_key)
             .join(format!("{}.code-workspace", input.epic_key));
         info!("Opening workspace with VS Code: {}", path.display());
-        cmd("code", &[path.to_string_lossy().into_owned()]).run().map_err(|e| {
-            WorkspaceError::editor("vscode", format!("Failed to open workspace: {}", e))
-        })?;
+        cmd("code", &[path.to_string_lossy().into_owned()])
+            .run()
+            .map_err(|e| {
+                WorkspaceError::editor("vscode", format!("Failed to open workspace: {}", e))
+            })?;
         Ok(())
     }
 
@@ -84,10 +100,16 @@ impl EditorAdapter for VSCodeEditorAdapter {
             .join(&input.epic_key)
             .join("repos")
             .join(&input.service_id);
-        info!("Opening service '{}' with VS Code: {}", input.service_id, path.display());
-        cmd("code", &[path.to_string_lossy().into_owned()]).run().map_err(|e| {
-            WorkspaceError::editor("vscode", format!("Failed to open service: {}", e))
-        })?;
+        info!(
+            "Opening service '{}' with VS Code: {}",
+            input.service_id,
+            path.display()
+        );
+        cmd("code", &[path.to_string_lossy().into_owned()])
+            .run()
+            .map_err(|e| {
+                WorkspaceError::editor("vscode", format!("Failed to open service: {}", e))
+            })?;
         Ok(())
     }
 }
@@ -112,9 +134,11 @@ impl EditorAdapter for ZedEditorAdapter {
     async fn open_workspace(&self, input: OpenWorkspaceInput) -> Result<(), WorkspaceError> {
         let path = Path::new("workspaces").join(&input.epic_key);
         info!("Opening workspace with Zed: {}", path.display());
-        cmd("zed", &[path.to_string_lossy().into_owned()]).run().map_err(|e| {
-            WorkspaceError::editor("zed", format!("Failed to open workspace: {}", e))
-        })?;
+        cmd("zed", &[path.to_string_lossy().into_owned()])
+            .run()
+            .map_err(|e| {
+                WorkspaceError::editor("zed", format!("Failed to open workspace: {}", e))
+            })?;
         Ok(())
     }
 
@@ -123,10 +147,14 @@ impl EditorAdapter for ZedEditorAdapter {
             .join(&input.epic_key)
             .join("repos")
             .join(&input.service_id);
-        info!("Opening service '{}' with Zed: {}", input.service_id, path.display());
-        cmd("zed", &[path.to_string_lossy().into_owned()]).run().map_err(|e| {
-            WorkspaceError::editor("zed", format!("Failed to open service: {}", e))
-        })?;
+        info!(
+            "Opening service '{}' with Zed: {}",
+            input.service_id,
+            path.display()
+        );
+        cmd("zed", &[path.to_string_lossy().into_owned()])
+            .run()
+            .map_err(|e| WorkspaceError::editor("zed", format!("Failed to open service: {}", e)))?;
         Ok(())
     }
 }
@@ -155,9 +183,14 @@ impl EditorAdapter for VimEditorAdapter {
             .arg(path.to_string_lossy().into_owned())
             .spawn()
             .map_err(|e| WorkspaceError::editor("vim", format!("Failed to spawn vim: {}", e)))?;
-        let status = child.wait().map_err(|e| WorkspaceError::editor("vim", format!("Vim failed to exit: {}", e)))?;
+        let status = child
+            .wait()
+            .map_err(|e| WorkspaceError::editor("vim", format!("Vim failed to exit: {}", e)))?;
         if !status.success() {
-            return Err(WorkspaceError::editor("vim", "Vim exited with non-zero status"));
+            return Err(WorkspaceError::editor(
+                "vim",
+                "Vim exited with non-zero status",
+            ));
         }
         Ok(())
     }
@@ -167,14 +200,23 @@ impl EditorAdapter for VimEditorAdapter {
             .join(&input.epic_key)
             .join("repos")
             .join(&input.service_id);
-        info!("Opening service '{}' with Vim: {}", input.service_id, path.display());
+        info!(
+            "Opening service '{}' with Vim: {}",
+            input.service_id,
+            path.display()
+        );
         let mut child = std::process::Command::new("vim")
             .arg(path.to_string_lossy().into_owned())
             .spawn()
             .map_err(|e| WorkspaceError::editor("vim", format!("Failed to spawn vim: {}", e)))?;
-        let status = child.wait().map_err(|e| WorkspaceError::editor("vim", format!("Vim failed to exit: {}", e)))?;
+        let status = child
+            .wait()
+            .map_err(|e| WorkspaceError::editor("vim", format!("Vim failed to exit: {}", e)))?;
         if !status.success() {
-            return Err(WorkspaceError::editor("vim", "Vim exited with non-zero status"));
+            return Err(WorkspaceError::editor(
+                "vim",
+                "Vim exited with non-zero status",
+            ));
         }
         Ok(())
     }
@@ -206,16 +248,23 @@ impl AiCommand for EditorOpenCommand {
     type Input = EditorOpenInput;
     type Output = StatusOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
-        let editor_id = input.editor
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
+        let editor_id = input
+            .editor
             .or_else(|| {
-                let ws_path = ctx.workspace_root
+                let ws_path = ctx
+                    .workspace_root
                     .join("workspaces")
                     .join(&input.epic_key)
                     .join("workspace.yaml");
                 if ws_path.exists() {
                     if let Ok(content) = std::fs::read_to_string(ws_path) {
-                        if let Ok(ws) = serde_yaml::from_str::<ws_core::models::Workspace>(&content) {
+                        if let Ok(ws) = serde_yaml::from_str::<ws_core::models::Workspace>(&content)
+                        {
                             return Some(ws.editor);
                         }
                     }
@@ -225,18 +274,25 @@ impl AiCommand for EditorOpenCommand {
             .unwrap_or_else(|| ctx.config.editor.default.clone());
 
         let adapter = ctx.editor_adapters.get(&editor_id).ok_or_else(|| {
-            WorkspaceError::NotFound(format!("Editor adapter '{}' not found/registered", editor_id))
+            WorkspaceError::NotFound(format!(
+                "Editor adapter '{}' not found/registered",
+                editor_id
+            ))
         })?;
 
         if let Some(service_id) = input.service_id {
-            adapter.open_service(OpenServiceInput {
-                epic_key: input.epic_key.clone(),
-                service_id,
-            }).await?;
+            adapter
+                .open_service(OpenServiceInput {
+                    epic_key: input.epic_key.clone(),
+                    service_id,
+                })
+                .await?;
         } else {
-            adapter.open_workspace(OpenWorkspaceInput {
-                epic_key: input.epic_key.clone(),
-            }).await?;
+            adapter
+                .open_workspace(OpenWorkspaceInput {
+                    epic_key: input.epic_key.clone(),
+                })
+                .await?;
         }
 
         Ok(StatusOutput {

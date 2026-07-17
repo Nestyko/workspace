@@ -1,13 +1,16 @@
+use async_trait::async_trait;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use ws_core::error::WorkspaceError;
-use ws_core::models::{KnowledgeCatalog, ProductCatalog, ServiceCatalog, TeamCatalog, ProductKnowledgeSource, CatalogDoc, CatalogIssueTracking, DeployConfig, UnderstandAnythingConfig};
 use ws_core::command::AiCommand;
 use ws_core::context::CommandContext;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use schemars::JsonSchema;
-use std::collections::HashMap;
+use ws_core::error::WorkspaceError;
+use ws_core::models::{
+    CatalogDoc, CatalogIssueTracking, DeployConfig, KnowledgeCatalog, ProductCatalog,
+    ProductKnowledgeSource, ServiceCatalog, TeamCatalog, UnderstandAnythingConfig,
+};
 
 pub fn get_catalog_dir(root: &Path) -> PathBuf {
     root.join("catalog")
@@ -61,7 +64,10 @@ pub fn add_knowledge(root: &Path, knowledge: &KnowledgeCatalog) -> Result<(), Wo
 pub fn get_service(root: &Path, id: &str) -> Result<ServiceCatalog, WorkspaceError> {
     let path = get_kind_dir(root, "services").join(format!("{}.yaml", id));
     if !path.exists() {
-        return Err(WorkspaceError::NotFound(format!("Service '{}' not found in catalog", id)));
+        return Err(WorkspaceError::NotFound(format!(
+            "Service '{}' not found in catalog",
+            id
+        )));
     }
     let content = fs::read_to_string(path)?;
     let service: ServiceCatalog = serde_yaml::from_str(&content)?;
@@ -71,7 +77,10 @@ pub fn get_service(root: &Path, id: &str) -> Result<ServiceCatalog, WorkspaceErr
 pub fn get_product(root: &Path, id: &str) -> Result<ProductCatalog, WorkspaceError> {
     let path = get_kind_dir(root, "products").join(format!("{}.yaml", id));
     if !path.exists() {
-        return Err(WorkspaceError::NotFound(format!("Product '{}' not found in catalog", id)));
+        return Err(WorkspaceError::NotFound(format!(
+            "Product '{}' not found in catalog",
+            id
+        )));
     }
     let content = fs::read_to_string(path)?;
     let product: ProductCatalog = serde_yaml::from_str(&content)?;
@@ -81,7 +90,10 @@ pub fn get_product(root: &Path, id: &str) -> Result<ProductCatalog, WorkspaceErr
 pub fn get_team(root: &Path, id: &str) -> Result<TeamCatalog, WorkspaceError> {
     let path = get_kind_dir(root, "teams").join(format!("{}.yaml", id));
     if !path.exists() {
-        return Err(WorkspaceError::NotFound(format!("Team '{}' not found in catalog", id)));
+        return Err(WorkspaceError::NotFound(format!(
+            "Team '{}' not found in catalog",
+            id
+        )));
     }
     let content = fs::read_to_string(path)?;
     let team: TeamCatalog = serde_yaml::from_str(&content)?;
@@ -91,7 +103,10 @@ pub fn get_team(root: &Path, id: &str) -> Result<TeamCatalog, WorkspaceError> {
 pub fn get_knowledge(root: &Path, id: &str) -> Result<KnowledgeCatalog, WorkspaceError> {
     let path = get_kind_dir(root, "knowledge").join(format!("{}.yaml", id));
     if !path.exists() {
-        return Err(WorkspaceError::NotFound(format!("Knowledge source '{}' not found in catalog", id)));
+        return Err(WorkspaceError::NotFound(format!(
+            "Knowledge source '{}' not found in catalog",
+            id
+        )));
     }
     let content = fs::read_to_string(path)?;
     let knowledge: KnowledgeCatalog = serde_yaml::from_str(&content)?;
@@ -107,7 +122,10 @@ pub fn list_services(root: &Path) -> Result<Vec<ServiceCatalog>, WorkspaceError>
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+        if path
+            .extension()
+            .map_or(false, |ext| ext == "yaml" || ext == "yml")
+        {
             let content = fs::read_to_string(&path)?;
             if let Ok(service) = serde_yaml::from_str::<ServiceCatalog>(&content) {
                 services.push(service);
@@ -126,7 +144,10 @@ pub fn list_products(root: &Path) -> Result<Vec<ProductCatalog>, WorkspaceError>
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+        if path
+            .extension()
+            .map_or(false, |ext| ext == "yaml" || ext == "yml")
+        {
             let content = fs::read_to_string(&path)?;
             if let Ok(product) = serde_yaml::from_str::<ProductCatalog>(&content) {
                 products.push(product);
@@ -145,7 +166,10 @@ pub fn list_teams(root: &Path) -> Result<Vec<TeamCatalog>, WorkspaceError> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+        if path
+            .extension()
+            .map_or(false, |ext| ext == "yaml" || ext == "yml")
+        {
             let content = fs::read_to_string(&path)?;
             if let Ok(team) = serde_yaml::from_str::<TeamCatalog>(&content) {
                 teams.push(team);
@@ -164,7 +188,10 @@ pub fn list_knowledge(root: &Path) -> Result<Vec<KnowledgeCatalog>, WorkspaceErr
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+        if path
+            .extension()
+            .map_or(false, |ext| ext == "yaml" || ext == "yml")
+        {
             let content = fs::read_to_string(&path)?;
             if let Ok(item) = serde_yaml::from_str::<KnowledgeCatalog>(&content) {
                 items.push(item);
@@ -184,10 +211,18 @@ pub fn validate_catalog(root: &Path) -> Result<(), WorkspaceError> {
         for entry in fs::read_dir(service_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+            if path
+                .extension()
+                .map_or(false, |ext| ext == "yaml" || ext == "yml")
+            {
                 let content = fs::read_to_string(&path)?;
-                serde_yaml::from_str::<ServiceCatalog>(&content)
-                    .map_err(|e| WorkspaceError::Catalog(format!("Invalid service yaml in {}: {}", path.display(), e)))?;
+                serde_yaml::from_str::<ServiceCatalog>(&content).map_err(|e| {
+                    WorkspaceError::Catalog(format!(
+                        "Invalid service yaml in {}: {}",
+                        path.display(),
+                        e
+                    ))
+                })?;
             }
         }
     }
@@ -196,10 +231,18 @@ pub fn validate_catalog(root: &Path) -> Result<(), WorkspaceError> {
         for entry in fs::read_dir(product_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+            if path
+                .extension()
+                .map_or(false, |ext| ext == "yaml" || ext == "yml")
+            {
                 let content = fs::read_to_string(&path)?;
-                serde_yaml::from_str::<ProductCatalog>(&content)
-                    .map_err(|e| WorkspaceError::Catalog(format!("Invalid product yaml in {}: {}", path.display(), e)))?;
+                serde_yaml::from_str::<ProductCatalog>(&content).map_err(|e| {
+                    WorkspaceError::Catalog(format!(
+                        "Invalid product yaml in {}: {}",
+                        path.display(),
+                        e
+                    ))
+                })?;
             }
         }
     }
@@ -208,10 +251,18 @@ pub fn validate_catalog(root: &Path) -> Result<(), WorkspaceError> {
         for entry in fs::read_dir(team_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+            if path
+                .extension()
+                .map_or(false, |ext| ext == "yaml" || ext == "yml")
+            {
                 let content = fs::read_to_string(&path)?;
-                serde_yaml::from_str::<TeamCatalog>(&content)
-                    .map_err(|e| WorkspaceError::Catalog(format!("Invalid team yaml in {}: {}", path.display(), e)))?;
+                serde_yaml::from_str::<TeamCatalog>(&content).map_err(|e| {
+                    WorkspaceError::Catalog(format!(
+                        "Invalid team yaml in {}: {}",
+                        path.display(),
+                        e
+                    ))
+                })?;
             }
         }
     }
@@ -220,10 +271,18 @@ pub fn validate_catalog(root: &Path) -> Result<(), WorkspaceError> {
         for entry in fs::read_dir(knowledge_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "yaml" || ext == "yml") {
+            if path
+                .extension()
+                .map_or(false, |ext| ext == "yaml" || ext == "yml")
+            {
                 let content = fs::read_to_string(&path)?;
-                serde_yaml::from_str::<KnowledgeCatalog>(&content)
-                    .map_err(|e| WorkspaceError::Catalog(format!("Invalid knowledge yaml in {}: {}", path.display(), e)))?;
+                serde_yaml::from_str::<KnowledgeCatalog>(&content).map_err(|e| {
+                    WorkspaceError::Catalog(format!(
+                        "Invalid knowledge yaml in {}: {}",
+                        path.display(),
+                        e
+                    ))
+                })?;
             }
         }
     }
@@ -252,7 +311,11 @@ impl AiCommand for CatalogValidateCommand {
     type Input = EmptyInput;
     type Output = StatusOutput;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         validate_catalog(&ctx.workspace_root)?;
         Ok(StatusOutput {
             success: true,
@@ -270,7 +333,11 @@ impl AiCommand for CatalogServiceAddCommand {
     type Input = ServiceCatalog;
     type Output = ServiceCatalog;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         add_service(&ctx.workspace_root, &input)?;
         Ok(input)
     }
@@ -328,11 +395,16 @@ pub struct CatalogServiceUpdateCommand;
 #[async_trait]
 impl AiCommand for CatalogServiceUpdateCommand {
     const ID: &'static str = "catalog.service.update";
-    const DESCRIPTION: &'static str = "Strict partial-merge patch into a service catalog entry; re-validates the catalog.";
+    const DESCRIPTION: &'static str =
+        "Strict partial-merge patch into a service catalog entry; re-validates the catalog.";
     type Input = CatalogServiceUpdateInput;
     type Output = ServiceCatalog;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let root = &ctx.workspace_root;
         let mut service = get_service(root, &input.id)?;
 
@@ -395,7 +467,11 @@ impl AiCommand for CatalogServiceGetCommand {
     type Input = CatalogGetInput;
     type Output = ServiceCatalog;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         get_service(&ctx.workspace_root, &input.id)
     }
 }
@@ -409,7 +485,11 @@ impl AiCommand for CatalogServiceListCommand {
     type Input = EmptyInput;
     type Output = Vec<ServiceCatalog>;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         list_services(&ctx.workspace_root)
     }
 }
@@ -423,7 +503,11 @@ impl AiCommand for CatalogProductAddCommand {
     type Input = ProductCatalog;
     type Output = ProductCatalog;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         add_product(&ctx.workspace_root, &input)?;
         Ok(input)
     }
@@ -438,7 +522,11 @@ impl AiCommand for CatalogProductGetCommand {
     type Input = CatalogGetInput;
     type Output = ProductCatalog;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         get_product(&ctx.workspace_root, &input.id)
     }
 }
@@ -452,7 +540,11 @@ impl AiCommand for CatalogProductListCommand {
     type Input = EmptyInput;
     type Output = Vec<ProductCatalog>;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         list_products(&ctx.workspace_root)
     }
 }
@@ -466,7 +558,11 @@ impl AiCommand for CatalogTeamAddCommand {
     type Input = TeamCatalog;
     type Output = TeamCatalog;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         add_team(&ctx.workspace_root, &input)?;
         Ok(input)
     }
@@ -481,7 +577,11 @@ impl AiCommand for CatalogTeamGetCommand {
     type Input = CatalogGetInput;
     type Output = TeamCatalog;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         get_team(&ctx.workspace_root, &input.id)
     }
 }
@@ -495,7 +595,11 @@ impl AiCommand for CatalogTeamListCommand {
     type Input = EmptyInput;
     type Output = Vec<TeamCatalog>;
 
-    async fn run(&self, ctx: CommandContext, _input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        _input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         list_teams(&ctx.workspace_root)
     }
 }
@@ -528,13 +632,21 @@ pub struct ContextResolveCommand;
 #[async_trait]
 impl AiCommand for ContextResolveCommand {
     const ID: &'static str = "context.resolve";
-    const DESCRIPTION: &'static str = "Resolve products, recommended services, and knowledge sources based on a query.";
+    const DESCRIPTION: &'static str =
+        "Resolve products, recommended services, and knowledge sources based on a query.";
     type Input = ContextResolveInput;
     type Output = ContextResolveOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let query_lower = input.query.to_lowercase();
-        let tokens: Vec<&str> = query_lower.split_whitespace().map(|s| s.trim_matches(|c: char| !c.is_alphanumeric())).collect();
+        let tokens: Vec<&str> = query_lower
+            .split_whitespace()
+            .map(|s| s.trim_matches(|c: char| !c.is_alphanumeric()))
+            .collect();
 
         let products = list_products(&ctx.workspace_root)?;
         let services = list_services(&ctx.workspace_root)?;
@@ -572,8 +684,15 @@ impl AiCommand for ContextResolveCommand {
                 // Check likely_relevant_when
                 for item in &s.likely_relevant_when {
                     let item_lower = item.to_lowercase();
-                    let matches_count = tokens.iter().filter(|t| !t.is_empty() && item_lower.contains(*t)).count();
-                    if matches_count >= 2 || (tokens.len() == 1 && !tokens[0].is_empty() && item_lower.contains(tokens[0])) {
+                    let matches_count = tokens
+                        .iter()
+                        .filter(|t| !t.is_empty() && item_lower.contains(*t))
+                        .count();
+                    if matches_count >= 2
+                        || (tokens.len() == 1
+                            && !tokens[0].is_empty()
+                            && item_lower.contains(tokens[0]))
+                    {
                         match_reason = Some(format!("Matches typical scenario: '{}'", item));
                         break;
                     }
@@ -593,7 +712,8 @@ impl AiCommand for ContextResolveCommand {
                     // General description search
                     for token in &tokens {
                         if !token.is_empty() && s.description.to_lowercase().contains(token) {
-                            match_reason = Some(format!("Query contains description term: '{}'", token));
+                            match_reason =
+                                Some(format!("Query contains description term: '{}'", token));
                             break;
                         }
                     }

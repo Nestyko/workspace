@@ -9,16 +9,9 @@ pub trait AiCommand: Send + Sync + 'static {
     const ID: &'static str;
     const DESCRIPTION: &'static str;
 
-    type Input: serde::de::DeserializeOwned
-        + serde::Serialize
-        + schemars::JsonSchema
-        + Send
-        + Sync;
+    type Input: serde::de::DeserializeOwned + serde::Serialize + schemars::JsonSchema + Send + Sync;
 
-    type Output: serde::Serialize
-        + schemars::JsonSchema
-        + Send
-        + Sync;
+    type Output: serde::Serialize + schemars::JsonSchema + Send + Sync;
 
     async fn run(
         &self,

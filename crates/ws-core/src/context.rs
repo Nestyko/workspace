@@ -1,6 +1,6 @@
 use crate::editors::EditorAdapter;
 use crate::models::LocalConfig;
-use crate::providers::{CodeProvider, IssueProvider, DocProvider};
+use crate::providers::{CodeProvider, DocProvider, IssueProvider};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;

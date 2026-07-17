@@ -91,20 +91,27 @@ impl DocProvider for ConfluenceProvider {
             return Ok(AuthStatus {
                 authenticated: true,
                 username: Some("confluence-mock-user".to_string()),
-                details: Some("Confluence provider running in mock mode (credentials missing)".to_string()),
+                details: Some(
+                    "Confluence provider running in mock mode (credentials missing)".to_string(),
+                ),
             });
         }
 
         let base_url = self.base_url.as_ref().unwrap();
         // Simple auth check via current user info
-        let url = format!("{}/wiki/rest/api/user/current", base_url.trim_end_matches('/'));
+        let url = format!(
+            "{}/wiki/rest/api/user/current",
+            base_url.trim_end_matches('/')
+        );
         let client = self.client()?;
         let response = client
             .get(&url)
             .headers(self.get_headers()?)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("confluence", format!("Auth check failed: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("confluence", format!("Auth check failed: {}", e))
+            })?;
 
         if response.status().is_success() {
             #[derive(Deserialize)]
@@ -113,7 +120,10 @@ impl DocProvider for ConfluenceProvider {
                 display_name: String,
             }
             let info: UserInfo = response.json().await.map_err(|e| {
-                WorkspaceError::provider("confluence", format!("Failed to parse user details: {}", e))
+                WorkspaceError::provider(
+                    "confluence",
+                    format!("Failed to parse user details: {}", e),
+                )
             })?;
             Ok(AuthStatus {
                 authenticated: true,
@@ -134,7 +144,10 @@ impl DocProvider for ConfluenceProvider {
 
     async fn get_page(&self, space: &str, title: &str) -> Result<String, WorkspaceError> {
         if self.is_mock() {
-            info!("Confluence get_page in space '{}', title '{}' (Mock)", space, title);
+            info!(
+                "Confluence get_page in space '{}', title '{}' (Mock)",
+                space, title
+            );
             return Ok(format!(
                 "# Mock Confluence Page\n\nSpace: {}\nTitle: {}\n\nThis is placeholder confluence page content.",
                 space, title
@@ -155,12 +168,18 @@ impl DocProvider for ConfluenceProvider {
             .headers(self.get_headers()?)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("confluence", format!("Failed to get page: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("confluence", format!("Failed to get page: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(
                 "confluence",
-                format!("Failed to retrieve page '{}': status {}", title, response.status()),
+                format!(
+                    "Failed to retrieve page '{}': status {}",
+                    title,
+                    response.status()
+                ),
             ));
         }
 
@@ -169,7 +188,10 @@ impl DocProvider for ConfluenceProvider {
         })?;
 
         let first = results.results.first().ok_or_else(|| {
-            WorkspaceError::NotFound(format!("Page '{}' not found in Confluence space '{}'", title, space))
+            WorkspaceError::NotFound(format!(
+                "Page '{}' not found in Confluence space '{}'",
+                title, space
+            ))
         })?;
 
         let body = first
@@ -189,8 +211,14 @@ impl DocProvider for ConfluenceProvider {
         body: &str,
     ) -> Result<String, WorkspaceError> {
         if self.is_mock() {
-            info!("Confluence create_page in space '{}', title '{}' (Mock)", space, title);
-            return Ok(format!("mock-page-id-{}", title.replace(' ', "-").to_lowercase()));
+            info!(
+                "Confluence create_page in space '{}', title '{}' (Mock)",
+                space, title
+            );
+            return Ok(format!(
+                "mock-page-id-{}",
+                title.replace(' ', "-").to_lowercase()
+            ));
         }
 
         let base_url = self.base_url.as_ref().unwrap();
@@ -217,7 +245,9 @@ impl DocProvider for ConfluenceProvider {
             .json(&post_body)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("confluence", format!("Failed to create page: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("confluence", format!("Failed to create page: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(WorkspaceError::provider(
@@ -244,7 +274,10 @@ impl DocProvider for ConfluenceProvider {
         body: &str,
     ) -> Result<(), WorkspaceError> {
         if self.is_mock() {
-            info!("Confluence update_page ID '{}', title '{}' (Mock)", page_id, title);
+            info!(
+                "Confluence update_page ID '{}', title '{}' (Mock)",
+                page_id, title
+            );
             return Ok(());
         }
 
@@ -263,12 +296,21 @@ impl DocProvider for ConfluenceProvider {
             .headers(self.get_headers()?)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("confluence", format!("Failed to fetch version before update: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider(
+                    "confluence",
+                    format!("Failed to fetch version before update: {}", e),
+                )
+            })?;
 
         if !get_response.status().is_success() {
             return Err(WorkspaceError::provider(
                 "confluence",
-                format!("Failed to get version for page {}: status {}", page_id, get_response.status()),
+                format!(
+                    "Failed to get version for page {}: status {}",
+                    page_id,
+                    get_response.status()
+                ),
             ));
         }
 
@@ -286,7 +328,11 @@ impl DocProvider for ConfluenceProvider {
             WorkspaceError::provider("confluence", format!("Failed to parse page version: {}", e))
         })?;
 
-        let put_url = format!("{}/wiki/rest/api/content/{}", base_url.trim_end_matches('/'), page_id);
+        let put_url = format!(
+            "{}/wiki/rest/api/content/{}",
+            base_url.trim_end_matches('/'),
+            page_id
+        );
         let put_body = serde_json::json!({
             "id": page_id,
             "type": "page",
@@ -311,12 +357,17 @@ impl DocProvider for ConfluenceProvider {
             .json(&put_body)
             .send()
             .await
-            .map_err(|e| WorkspaceError::provider("confluence", format!("Failed to update page: {}", e)))?;
+            .map_err(|e| {
+                WorkspaceError::provider("confluence", format!("Failed to update page: {}", e))
+            })?;
 
         if !put_response.status().is_success() {
             return Err(WorkspaceError::provider(
                 "confluence",
-                format!("Failed to save updated page: status {}", put_response.status()),
+                format!(
+                    "Failed to save updated page: status {}",
+                    put_response.status()
+                ),
             ));
         }
 

@@ -251,7 +251,11 @@ mod tests {
             .iter()
             .filter(|f| f.finding_type == FindingType::Orphan)
             .collect();
-        assert_eq!(orphans.len(), 1, "expected exactly one orphan: {findings:?}");
+        assert_eq!(
+            orphans.len(),
+            1,
+            "expected exactly one orphan: {findings:?}"
+        );
         assert_eq!(orphans[0].page, "topics/revenue.md");
     }
 
@@ -284,7 +288,10 @@ mod tests {
         // [[revenue]] is written in entities/, but the page lives in topics/.
         // Folder-agnostic resolution: the link resolves; no broken link.
         let (_tmp, root) = wiki_with(&[
-            ("entities/customer-a.md", "# Customer A\nLoves [[revenue]].\n"),
+            (
+                "entities/customer-a.md",
+                "# Customer A\nLoves [[revenue]].\n",
+            ),
             ("topics/revenue.md", "# Revenue\nSee [[customer-a]].\n"),
         ]);
         let findings = lint(&root).unwrap();
@@ -306,8 +313,14 @@ mod tests {
                 "topics/revenue.md",
                 "# Revenue\nSee [[pricing#section]] and [[customer-a|the money]].\n",
             ),
-            ("topics/pricing.md", "# Pricing\nDrives [[revenue|the money]].\n"),
-            ("entities/customer-a.md", "# Customer A\nLoves [[revenue]].\n"),
+            (
+                "topics/pricing.md",
+                "# Pricing\nDrives [[revenue|the money]].\n",
+            ),
+            (
+                "entities/customer-a.md",
+                "# Customer A\nLoves [[revenue]].\n",
+            ),
         ]);
         let findings = lint(&root).unwrap();
         assert!(

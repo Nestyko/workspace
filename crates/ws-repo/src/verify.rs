@@ -17,7 +17,7 @@ use ws_core::command::AiCommand;
 use ws_core::context::CommandContext;
 use ws_core::error::WorkspaceError;
 
-use crate::run::{RepoRunInput, RepoRunCommand, RepoRunOutput};
+use crate::run::{RepoRunCommand, RepoRunInput, RepoRunOutput};
 
 /// Ordered steps for `repo.verify`. `deploy` is intentionally absent.
 const VERIFY_ORDER: &[&str] = &[
@@ -63,11 +63,16 @@ pub struct RepoVerifyCommand;
 #[async_trait]
 impl AiCommand for RepoVerifyCommand {
     const ID: &'static str = "repo.verify";
-    const DESCRIPTION: &'static str = "Deterministic run-all (post-setup); excludes deploy; stops at first failure.";
+    const DESCRIPTION: &'static str =
+        "Deterministic run-all (post-setup); excludes deploy; stops at first failure.";
     type Input = RepoVerifyInput;
     type Output = RepoVerifyOutput;
 
-    async fn run(&self, ctx: CommandContext, input: Self::Input) -> Result<Self::Output, WorkspaceError> {
+    async fn run(
+        &self,
+        ctx: CommandContext,
+        input: Self::Input,
+    ) -> Result<Self::Output, WorkspaceError> {
         let service = get_service(&ctx.workspace_root, &input.service_id)?;
         let repo_root = Path::new(&input.repo_path);
         if !repo_root.exists() {
