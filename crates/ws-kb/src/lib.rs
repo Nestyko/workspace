@@ -165,6 +165,53 @@ pub struct ScaffoldReport {
     pub assets: Vec<AssetReport>,
 }
 
+/// Runs the `ws kb init` workflow and returns a human-readable summary
+/// (header, one line per asset, and a tally).
+///
+/// This is the KB crate's single entry point for the CLI: it parses the
+/// `--reset` token, dispatches to [`scaffold`], and renders the report text.
+/// The caller (`main.rs`) owns only the I/O — printing the returned string —
+/// so the CLI stays a thin dispatcher and KB-specific orchestration lives
+/// here next to the data it acts on.
+///
+/// `reset` is the raw `--reset <asset>` token (a path relative to the
+/// embedded KB root). [`None`] means the default skip-by-default scaffold.
+pub fn run_init(root: &Path, reset: Option<&str>) -> Result<String, WorkspaceError> {
+    let (report, header) = match reset {
+        Some(name) => {
+            let id = AssetId::from_arg(name).map_err(|e| WorkspaceError::UnknownAsset {
+                requested: e.requested,
+                valid: e.valid,
+            })?;
+            (scaffold(root, Some(id))?, "Knowledge base reset:")
+        }
+        None => (scaffold(root, None)?, "Knowledge base scaffold:"),
+    };
+
+    let mut out = String::from(header);
+    out.push('\n');
+    let mut written = 0;
+    let mut skipped = 0;
+    for a in &report.assets {
+        out.push_str(&format!(
+            "  {:<10} {}\n",
+            format!("{:?}", a.status).to_lowercase(),
+            a.path
+        ));
+        match a.status {
+            AssetStatus::Written => written += 1,
+            AssetStatus::Skipped => skipped += 1,
+            AssetStatus::Refreshed => {}
+        }
+    }
+    if reset.is_some() {
+        out.push_str("\n1 refreshed.");
+    } else {
+        out.push_str(&format!("\n{} written, {} skipped.", written, skipped));
+    }
+    Ok(out)
+}
+
 /// Scaffolds the knowledge-base tree under `<root>/catalog/knowledge/`.
 ///
 /// **Skip-by-default:** existing files are preserved (status
@@ -576,5 +623,69 @@ mod tests {
         assert_eq!(err.valid.len(), 13);
         assert!(err.to_string().contains("does-not-exist.md"));
         assert!(err.to_string().contains("SCHEMA.md"));
+    }
+
+    #[test]
+    fn run_init_default_renders_header_and_tally() {
+        let tmp = TempDir::new().unwrap();
+        let summary = run_init(tmp.path(), None).unwrap();
+
+        assert!(
+            summary.starts_with("Knowledge base scaffold:\n"),
+            "default run should open with the scaffold header: {summary:?}"
+        );
+        let embedded = embedded_files();
+        assert_eq!(
+            summary
+                .lines()
+                .filter(|l| !l.is_empty())
+                .count()
+                .saturating_sub(2),
+            embedded.len(),
+            "summary should have one asset line per embedded file (plus header + tally)"
+        );
+        assert!(
+            summary.ends_with(&format!("\n{} written, {} skipped.", embedded.len(), 0)),
+            "fresh scaffold should tally all written, none skipped: {summary:?}"
+        );
+    }
+
+    #[test]
+    fn run_init_reset_renders_refresh_header_and_tally() {
+        let tmp = TempDir::new().unwrap();
+        let _ = scaffold(tmp.path(), None).unwrap();
+
+        let summary = run_init(tmp.path(), Some("SCHEMA.md")).unwrap();
+        assert!(
+            summary.starts_with("Knowledge base reset:\n"),
+            "reset run should open with the reset header: {summary:?}"
+        );
+        assert!(
+            summary.contains("refreshed"),
+            "reset summary should mention a refresh: {summary:?}"
+        );
+        assert!(
+            summary.contains("SCHEMA.md"),
+            "reset summary should name the refreshed asset: {summary:?}"
+        );
+        assert!(
+            summary.ends_with("\n1 refreshed."),
+            "reset summary should end with the one-refreshed tally: {summary:?}"
+        );
+    }
+
+    #[test]
+    fn run_init_reset_unknown_name_errors_propagating_valid_list() {
+        let tmp = TempDir::new().unwrap();
+        let err = run_init(tmp.path(), Some("bogus.md")).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("bogus.md"),
+            "error must name the request: {msg}"
+        );
+        assert!(
+            msg.contains("SCHEMA.md"),
+            "error must list a valid name: {msg}"
+        );
     }
 }

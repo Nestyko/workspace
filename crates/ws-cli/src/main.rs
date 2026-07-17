@@ -564,43 +564,8 @@ docs:
 fn handle_kb(root: &Path, kb_sub: KbSub) -> Result<(), WorkspaceError> {
     match kb_sub {
         KbSub::Init { reset } => {
-            if let Some(name) = reset {
-                let id =
-                    ws_kb::AssetId::from_arg(&name).map_err(|e| WorkspaceError::UnknownAsset {
-                        requested: e.requested,
-                        valid: e.valid,
-                    })?;
-                let report = ws_kb::scaffold(root, Some(id))?;
-                println!("Knowledge base reset:");
-                for a in &report.assets {
-                    println!(
-                        "  {:<10} {}",
-                        format!("{:?}", a.status).to_lowercase(),
-                        a.path
-                    );
-                }
-                println!("\n1 refreshed.");
-            } else {
-                let report = ws_kb::scaffold(root, None)?;
-                println!("Knowledge base scaffold:");
-                let mut written = 0;
-                let mut skipped = 0;
-                for a in &report.assets {
-                    println!(
-                        "  {:<10} {}",
-                        format!("{:?}", a.status).to_lowercase(),
-                        a.path
-                    );
-                    match a.status {
-                        ws_kb::AssetStatus::Written => written += 1,
-                        ws_kb::AssetStatus::Skipped => skipped += 1,
-                        ws_kb::AssetStatus::Refreshed => {
-                            // Not produced by the default scaffold path.
-                        }
-                    }
-                }
-                println!("\n{} written, {} skipped.", written, skipped);
-            }
+            let summary = ws_kb::run_init(root, reset.as_deref())?;
+            println!("{summary}");
         }
     }
     Ok(())
@@ -784,14 +749,17 @@ async fn handle_add(
             let (owner, repo_name) = if parts.len() == 2 {
                 (parts[0].to_string(), parts[1].to_string())
             } else {
-                let default_owner = ctx.config.code_provider.default_owner.clone().ok_or_else(
-                    || {
-                        WorkspaceError::Validation(
+                let default_owner =
+                    ctx.config
+                        .code_provider
+                        .default_owner
+                        .clone()
+                        .ok_or_else(|| {
+                            WorkspaceError::Validation(
                             "Specify full name <owner>/<repo> or set default code-owner config."
                                 .to_string(),
                         )
-                    },
-                )?;
+                        })?;
                 (default_owner, name)
             };
 
