@@ -23,6 +23,9 @@ use std::fs;
 use std::path::Path;
 use ws_core::error::WorkspaceError;
 
+pub mod lint;
+pub use lint::{lint, FindingType, LintFinding, Severity};
+
 /// The canonical embedded knowledge-base asset tree.
 ///
 /// Physically rooted at `crates/ws-cli/assets/catalog-knowledge/`; embedded
