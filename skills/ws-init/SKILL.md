@@ -66,15 +66,17 @@ ws ai manifest | grep -c '"id"'        # expect 39; if lower, reinstall from sou
 ### Step 1 — Ask the human the setup questions (chat, non-deterministic)
 Ask, one batch or iteratively, and let the user customize each:
 
-1. **Issue provider** — only `jira` is supported today. Confirm or skip (issue tracking is
-   optional for pure code-quality use).
+1. **Issue provider** — `jira` (cloud, needs an account + domain) or `dex` (local,
+   no account, no domain — https://dex.rip). Issue tracking is optional and may be skipped
+   entirely for pure code-quality use.
 2. **Code provider** — `github-gh`. Confirm.
 3. **Default editor** — one of `cursor`, `vscode`, `zed`, `vim`.
 4. **GitHub org/user** (`code-owner`) — the default owner for `ws add repo` / discovery.
-5. **Jira base URL** (e.g. `https://example.atlassian.net`) — only if issue provider used.
-6. **Jira default project key** — only if issue provider used.
-7. **Confluence base URL + space key** — only if the doc/knowledge provider is used
-   (optional; the harness works without it).
+5. **Jira base URL** (e.g. `https://example.atlassian.net`) — only if the issue provider
+   is `jira`. **Dex needs no domain**, so skip entirely when `dex` is selected.
+6. **Jira default project key** — only if the issue provider is `jira`.
+7. **Document provider** — `confluence` or **skip** (the workspace works without a doc
+   provider). Confluence base URL + space key are only asked when Confluence is selected.
 
 Record the answers. Do not proceed until the user confirms.
 
@@ -84,11 +86,12 @@ All eight keys are non-interactive and write to `.ws/config.yaml`:
 ws config set code-provider github-gh
 ws config set code-owner      <owner>
 ws config set editor          <cursor|vscode|zed|vim>
-ws config set issue-provider  jira          # only if used
-ws config set jira-url        <url>         # only if used
-ws config set jira-project    <key>         # only if used
-ws config set confluence-url  <url>         # only if used
-ws config set confluence-space <key>        # only if used
+ws config set issue-provider  jira|dex       # only if used
+ws config set jira-url        <url>         # only if issue provider is jira
+ws config set jira-project    <key>         # only if issue provider is jira
+ws config set doc-provider    confluence|none  # none skips the doc provider
+ws config set confluence-url  <url>         # only if doc provider is confluence
+ws config set confluence-space <key>        # only if doc provider is confluence
 ```
 
 ### Step 3 — Validate provider auth (warn, don't hard-block)

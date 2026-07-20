@@ -12,7 +12,7 @@ This tool provides a control plane to manage per-epic workspaces across multiple
 - A decentralized catalog of products, teams, services, and knowledge sources (stored in YAML, one file per entity).
 - Lazy repository discovery and loading.
 - Per-epic developer workspaces built on Git worktrees.
-- Pluggable issue and code provider abstractions (Jira and GitHub via `gh` CLI provided as first-class MVPs).
+- Pluggable issue and code provider abstractions (Jira, Dex, and GitHub via `gh` CLI provided as first-class MVPs).
 - Native editor workspace configurations for Cursor, VS Code, Zed, and Vim.
 - A human-facing interactive command line.
 - A larger, typed AI-facing JSON Command API with JSON schema validation and manifest listing.
@@ -117,7 +117,7 @@ All 21 AI commands are documented in [command-api.md](file:///Users/nestyko/Docu
 
 The CLI core (`ws-core`) defines decoupled traits for:
 - `CodeProvider` (MVP: `GitHubGhProvider` via `gh` CLI)
-- `IssueProvider` (MVP: `JiraProvider` supporting real HTTP and a local mock fallback)
+- `IssueProvider` (MVP: `JiraProvider` supporting real HTTP and a local mock fallback; `DexProvider` for fully local, no-account issue tracking via [dex](https://dex.rip))
 - `EditorAdapter` (Adapters for Cursor, VS Code, Zed, and Vim)
 
 This keeps the core engine decoupled from specific APIs and tool details.

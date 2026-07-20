@@ -2296,6 +2296,7 @@ dependencies = [
  "ws-core",
  "ws-editors",
  "ws-kb",
+ "ws-provider-dex",
  "ws-provider-github-gh",
  "ws-provider-jira",
  "ws-providers",
@@ -2354,6 +2355,18 @@ dependencies = [
  "include_dir",
  "tempfile",
  "ws-core",
+]
+
+[[package]]
+name = "ws-provider-dex"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "tracing",
+ "ws-core",
+ "ws-providers",
 ]
 
 [[package]]

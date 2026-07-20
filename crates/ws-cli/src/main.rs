@@ -20,6 +20,7 @@ use ws_core::models::{
 use ws_core::providers::{CodeProvider, DocProvider, IssueProvider};
 
 // Provider imports
+use ws_provider_dex::DexProvider;
 use ws_provider_github_gh::GitHubGhProvider;
 use ws_provider_jira::confluence::ConfluenceProvider;
 use ws_provider_jira::JiraProvider;
@@ -258,6 +259,9 @@ async fn main() -> miette::Result<()> {
             config.issue_provider.base_url.clone(),
             config.issue_provider.default_project.clone(),
         ))),
+        "dex" => Some(Arc::new(DexProvider::new(
+            config.issue_provider.default_project.clone(),
+        ))),
         _ => None,
     };
 
@@ -386,15 +390,26 @@ async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceE
 
     let issue_provider = Select::new(
         "Select issue provider:",
-        vec!["Jira", "Linear (coming soon)", "GitHub (coming soon)"],
+        vec![
+            "Jira",
+            "Dex (local, no account needed)",
+            "Linear (coming soon)",
+            "GitHub (coming soon)",
+        ],
     )
     .prompt()
     .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
-    if issue_provider != "Jira" {
-        return Err(WorkspaceError::Other(
-            "Only Jira issue provider is currently supported.".to_string(),
-        ));
-    }
+
+    // Dex needs no credentials/domain; Linear & GitHub are not implemented yet.
+    let issue_provider_type = match issue_provider {
+        "Jira" => "jira",
+        "Dex (local, no account needed)" => "dex",
+        other => {
+            return Err(WorkspaceError::Other(format!(
+                "Only Jira and Dex issue providers are currently supported; '{other}' is not yet available."
+            )));
+        }
+    };
 
     let code_provider = Select::new(
         "Select code provider:",
@@ -423,22 +438,47 @@ async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceE
         .prompt()
         .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
 
-    let jira_base_url = Text::new("Jira Base URL (e.g. https://example.atlassian.net):")
-        .prompt()
-        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
-
-    let jira_project = Text::new("Jira Default Project Key:")
-        .prompt()
-        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
-
-    let confluence_base_url =
-        Text::new("Confluence Base URL (e.g. https://example.atlassian.net):")
+    // Jira needs a base URL + project; Dex is local and needs neither.
+    // We only prompt for these when the user actually selected Jira.
+    let (jira_base_url, jira_project) = if issue_provider_type == "jira" {
+        let base_url = Text::new("Jira Base URL (e.g. https://example.atlassian.net):")
             .prompt()
             .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+        let project = Text::new("Jira Default Project Key:")
+            .prompt()
+            .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+        (Some(base_url), Some(project))
+    } else {
+        (None, None)
+    };
 
-    let confluence_space = Text::new("Confluence Default Space Key:")
-        .prompt()
-        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+    // The document/knowledge provider is optional. The user may use Confluence
+    // or skip it entirely (the workspace works without a doc provider).
+    let doc_provider = Select::new(
+        "Select document provider:",
+        vec!["Confluence", "Skip (no document provider)"],
+    )
+    .prompt()
+    .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+
+    let doc_provider_config: Option<ws_core::models::DocProviderConfig> =
+        if doc_provider == "Confluence" {
+            let confluence_base_url =
+                Text::new("Confluence Base URL (e.g. https://example.atlassian.net):")
+                    .prompt()
+                    .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+            let confluence_space = Text::new("Confluence Default Space Key:")
+                .prompt()
+                .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+            Some(ws_core::models::DocProviderConfig {
+                r#type: "confluence".to_string(),
+                base_url: Some(confluence_base_url),
+                default_space: Some(confluence_space),
+            })
+        } else {
+            println!("Skipping document provider (no Confluence setup required).");
+            None
+        };
 
     // Validate GH Auth
     println!("\nValidating GitHub auth through gh...");
@@ -460,13 +500,10 @@ async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceE
     let mut new_config = LocalConfig::default();
     new_config.code_provider.default_owner = Some(default_owner);
     new_config.editor.default = default_editor.to_string();
-    new_config.issue_provider.base_url = Some(jira_base_url);
-    new_config.issue_provider.default_project = Some(jira_project);
-    new_config.doc_provider = Some(ws_core::models::DocProviderConfig {
-        r#type: "confluence".to_string(),
-        base_url: Some(confluence_base_url),
-        default_space: Some(confluence_space),
-    });
+    new_config.issue_provider.r#type = issue_provider_type.to_string();
+    new_config.issue_provider.base_url = jira_base_url;
+    new_config.issue_provider.default_project = jira_project;
+    new_config.doc_provider = doc_provider_config;
 
     ws_config::save_config(root, &new_config)?;
     println!(
@@ -597,6 +634,27 @@ fn handle_config(
                 }
                 "issue-provider" => {
                     new_config.issue_provider.r#type = value.clone();
+                }
+                "doc-provider" => {
+                    let lower = value.to_lowercase();
+                    if lower == "none" || lower == "skip" || lower == "disabled" {
+                        new_config.doc_provider = None;
+                    } else if lower == "confluence" {
+                        if new_config.doc_provider.is_none() {
+                            new_config.doc_provider = Some(ws_core::models::DocProviderConfig {
+                                r#type: "confluence".to_string(),
+                                base_url: None,
+                                default_space: None,
+                            });
+                        } else {
+                            new_config.doc_provider.as_mut().unwrap().r#type =
+                                "confluence".to_string();
+                        }
+                    } else {
+                        return Err(WorkspaceError::Config(format!(
+                            "Unknown document provider '{value}'. Supported: confluence, none."
+                        )));
+                    }
                 }
                 "code-provider" => {
                     new_config.code_provider.r#type = value.clone();

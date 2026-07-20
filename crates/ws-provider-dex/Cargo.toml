@@ -1,0 +1,12 @@
+[package]
+name = "ws-provider-dex"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+ws-core = { workspace = true }
+ws-providers = { workspace = true }

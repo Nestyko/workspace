@@ -8,6 +8,7 @@ members = [
     "crates/ws-workspace",
     "crates/ws-providers",
     "crates/ws-provider-jira",
+    "crates/ws-provider-dex",
     "crates/ws-provider-github-gh",
     "crates/ws-editors",
     "crates/ws-ai-docs",
@@ -38,6 +39,7 @@ ws-catalog = { path = "crates/ws-catalog" }
 ws-workspace = { path = "crates/ws-workspace" }
 ws-providers = { path = "crates/ws-providers" }
 ws-provider-jira = { path = "crates/ws-provider-jira" }
+ws-provider-dex = { path = "crates/ws-provider-dex" }
 ws-provider-github-gh = { path = "crates/ws-provider-github-gh" }
 ws-editors = { path = "crates/ws-editors" }
 ws-ai-docs = { path = "crates/ws-ai-docs" }
