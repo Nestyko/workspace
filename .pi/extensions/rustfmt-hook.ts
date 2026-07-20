@@ -51,7 +51,10 @@ export default function (pi: ExtensionAPI) {
       if (!abs.startsWith(cwd)) continue;
 
       try {
-        await execFileP("rustfmt", [abs], {
+        // Pin the edition to match the workspace (Cargo.toml sets
+        // edition = "2021"). Without this rustfmt defaults to 2015 and
+        // errors on `async fn`, `dyn Trait` shorthand, etc.
+        await execFileP("rustfmt", ["--edition", "2021", abs], {
           cwd,
           timeout: RUSTFMT_TIMEOUT_MS,
           maxBuffer: 4 * 1024 * 1024,
