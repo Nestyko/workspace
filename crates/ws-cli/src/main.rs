@@ -60,7 +60,7 @@ use ws_providers::{
 };
 
 #[derive(Parser, Clone, Debug)]
-#[command(name = "ws")]
+#[command(name = "ws", version)]
 #[command(about = "Rust Multi-Repo AI Workspace CLI", long_about = None)]
 struct Cli {
     #[arg(short, long, global = true, help = "Verbose logging output")]
@@ -1163,6 +1163,22 @@ mod kb_cli_tests {
             stdfs::read(&target_path).unwrap().as_slice(),
             embedded_bytes,
             "reset should rewrite SCHEMA.md with embedded bytes"
+        );
+    }
+
+    /// `ws --version` should be accepted by clap as the built-in version flag,
+    /// which short-circuits printing `ws <CARGO_PKG_VERSION>`. We assert the
+    /// flag is recognized (parse produces a clap DisplayVersion error) rather
+    /// than a normal successful parse, guarding against removal of the
+    /// `version` attribute on the `Cli` struct.
+    #[test]
+    fn version_flag_short_circuits() {
+        let cli = Cli::try_parse_from(["ws", "--version"]);
+        let err = cli.expect_err("--version should short-circuit, not parse OK");
+        assert!(
+            err.kind() == clap::error::ErrorKind::DisplayVersion,
+            "expected DisplayVersion error, got {:?}",
+            err.kind()
         );
     }
 
