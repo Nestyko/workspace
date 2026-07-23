@@ -21,7 +21,7 @@ impl ConfluenceProvider {
             base_url,
             email,
             token,
-            default_space: default_space.unwrap_or_else(|| "COSELL".to_string()),
+            default_space: default_space.unwrap_or_default(),
         }
     }
 

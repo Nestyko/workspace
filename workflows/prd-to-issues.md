@@ -13,7 +13,7 @@ This workflow describes how a completed PRD is translated into actionable ticket
    Create a parent Epic for the feature implementation:
    ```bash
    ws ai run provider.issue.create_epic --input '{
-     "project": "COSELL",
+     "project": "ACME",
      "name": "Slack Integration",
      "summary": "Support Slack notifications for partner collaboration",
      "description": "Epic tracking all work related to Slack agent integration"
@@ -24,8 +24,8 @@ This workflow describes how a completed PRD is translated into actionable ticket
    - For backend/frontend tasks, link them using the link command:
      ```bash
      ws ai run provider.issue.link --input '{
-       "inward_key": "COSELL-124",
-       "outward_key": "COSELL-125",
+       "inward_key": "ACME-124",
+       "outward_key": "ACME-125",
        "link_type": "Blocks"
      }'
      ```
