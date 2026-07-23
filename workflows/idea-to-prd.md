@@ -7,10 +7,10 @@ This workflow details the process of translating a high-level product feature re
 1. **Query Context Resolution:**
    Run the AI context resolution command to find matched products, services, and teams:
    ```bash
-   ws ai run context.resolve --input '{"query": "Build a Slack agent for Cosell"}'
+   ws ai run context.resolve --input '{"query": "Build a Slack agent for Acme"}'
    ```
 2. **Review Matched Catalogs:**
-   - Inspect the returned product catalog details (e.g. `catalog/products/cosell.yaml`).
+   - Inspect the returned product catalog details (e.g. `catalog/products/acme.yaml`).
    - Inspect the recommended services (e.g. `catalog/services/notification.yaml`).
    - Identify knowledge spaces (e.g. Confluence spaces or Jira projects).
 3. **Draft the PRD:**

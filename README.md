@@ -73,19 +73,19 @@ ws discover --limit 10
 
 # Add catalog records manually
 ws add repo example-org/notification
-ws add product cosell
+ws add product acme
 ws add team platform
 
 # Open epic workspace or specific service in default editor
-ws open COSELL-123
-ws open COSELL-123 --service notification
+ws open ACME-123
+ws open ACME-123 --service notification
 
 # Show overall workspace and repository status
 ws status
-ws status COSELL-123
+ws status ACME-123
 
 # Push branches and create pull requests for modified repositories
-ws pr create COSELL-123 --all
+ws pr create ACME-123 --all
 ```
 
 ---
