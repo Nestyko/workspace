@@ -124,7 +124,7 @@ struct DiscoverArgs {
 
 #[derive(clap::Args, Clone, Debug)]
 struct OpenArgs {
-    #[arg(help = "The Jira Epic key (e.g. COSELL-123)")]
+    #[arg(help = "The Jira Epic key (e.g. ACME-123)")]
     epic_key: String,
 
     #[arg(long, help = "Specify the editor (cursor, vscode, zed, vim)")]
@@ -136,7 +136,7 @@ struct OpenArgs {
 
 #[derive(clap::Args, Clone, Debug)]
 struct StatusArgs {
-    #[arg(help = "The Jira Epic key (e.g. COSELL-123)")]
+    #[arg(help = "The Jira Epic key (e.g. ACME-123)")]
     epic_key: Option<String>,
 }
 
@@ -162,7 +162,7 @@ enum AddSub {
 enum PrSub {
     #[command(about = "Create a Pull Request for a specific service or all services")]
     Create {
-        #[arg(help = "The Jira Epic key (e.g. COSELL-123)")]
+        #[arg(help = "The Jira Epic key (e.g. ACME-123)")]
         epic_key: String,
 
         #[arg(long, help = "Create PR for a specific service")]
@@ -385,6 +385,101 @@ async fn run_cli(
     Ok(())
 }
 
+/// Write `README.md` into `dir` only when it does not already exist (never
+/// clobber a user-authored README on re-runs of `ws init`).
+fn write_folder_readme(dir: &Path, content: &str) -> Result<(), WorkspaceError> {
+    fs::create_dir_all(dir)?;
+    let readme = dir.join("README.md");
+    if !readme.exists() {
+        fs::write(&readme, content)?;
+    }
+    Ok(())
+}
+
+/// README.md seeded into `catalog/services/` by `ws init`.
+const SERVICES_README: &str = r#"# catalog/services/
+
+Each YAML file in this directory describes **one service** (a deployable repo
+or library) in the workspace catalog, e.g. `catalog/services/payments.yaml`.
+
+A service record tells the agent:
+
+- **what** the service owns and when it is relevant (`owns`, `likely_relevant_when`),
+- **how** to install, test, and lint it (`commands`),
+- **where** its code lives (`repo`),
+- **which team** owns it (`team`) and **which products** it belongs to (`products`),
+- **how** issues are tracked for it (`issue_tracking`), and
+- **where** its docs live (`docs`).
+
+## How to populate it
+
+1. **Auto-discover from your code provider** (fastest):
+   ```bash
+   ws discover --limit 10
+   ```
+2. **Add a single repo by `owner/name`:**
+   ```bash
+   ws add repo example-org/payments
+   ```
+3. **Author by hand:** copy `templates/service.yaml` to `catalog/services/<service-id>.yaml`
+   and edit it.
+
+See `templates/service.yaml` for the full annotated shape and `schemas/service.schema.json`
+for the validation contract.
+"#;
+
+/// README.md seeded into `catalog/products/` by `ws init`.
+const PRODUCTS_README: &str = r#"# catalog/products/
+
+Each YAML file in this directory describes **one product** (a product area or
+domain) in the workspace catalog, e.g. `catalog/products/acme.yaml`.
+
+A product record tells the agent:
+
+- **what** the product is (`description`),
+- **which services** are primary vs. related to it (`services.primary`, `services.related`),
+- **which external knowledge sources** (Confluence spaces, Jira projects) map to it
+  (`knowledge_sources`), and
+- **routing rules** that steer agent context to the right services (`routing_rules`).
+
+## How to populate it
+
+Add a product with:
+```bash
+ws add product acme
+```
+Then edit `catalog/products/acme.yaml` to wire in services and knowledge sources.
+
+See `templates/product.yaml` for the full annotated shape and `schemas/product.schema.json`
+for the validation contract.
+"#;
+
+/// README.md seeded into `catalog/teams/` by `ws init`.
+const TEAMS_README: &str = r#"# catalog/teams/
+
+Each YAML file in this directory describes **one team** in the workspace catalog,
+e.g. `catalog/teams/platform.yaml`.
+
+A team record tells the agent:
+
+- the team's **name**, **description**, and **lead**, and
+- the **members** (handles/usernames) on the team.
+
+Teams are referenced by `service.team` so the agent knows who owns a service,
+which is used for PR routing, review assignments, and context lookups.
+
+## How to populate it
+
+Add a team with:
+```bash
+ws add team platform
+```
+Then edit `catalog/teams/platform.yaml` to set the lead and members.
+
+See `templates/team.yaml` for the full annotated shape and `schemas/team.schema.json`
+for the validation contract.
+"#;
+
 async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceError> {
     println!("Welcome to AI Workspace.\n");
 
@@ -518,10 +613,19 @@ async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceE
     // preserves any existing user-edited wiki content on re-runs.
     ws_kb::scaffold(root, None)?;
 
-    // Create example catalog entries if empty
-    let services_dir = ws_catalog::get_kind_dir(root, "services");
-    if fs::read_dir(&services_dir).map(|d| d.count()).unwrap_or(0) == 0 {
-        fs::create_dir_all(root.join("templates"))?;
+    // Seed each catalog subfolder with a README.md (when absent) explaining its
+    // purpose. The workspace is intentionally shipped empty of company-specific
+    // sample entries — the user populates products/teams/services from their own
+    // context following those READMEs.
+    write_folder_readme(&ws_catalog::get_kind_dir(root, "services"), SERVICES_README)?;
+    write_folder_readme(&ws_catalog::get_kind_dir(root, "products"), PRODUCTS_README)?;
+    write_folder_readme(&ws_catalog::get_kind_dir(root, "teams"), TEAMS_README)?;
+
+    // Scaffold a reference templates/service.yaml (when absent) the user can
+    // mirror when authoring catalog/services/<id>.yaml entries by hand.
+    fs::create_dir_all(root.join("templates"))?;
+    let svc_template_path = root.join("templates").join("service.yaml");
+    if !svc_template_path.exists() {
         let svc_template = r#"id: service-id
 name: Service Name
 kind: service
@@ -543,41 +647,13 @@ commands:
   install: npm install
   test: npm test
 issue_tracking:
-  provider: jira
+  provider: dex
   project: PLATFORM
 docs:
   - type: readme
     path: README.md
 "#;
-        fs::write(root.join("templates").join("service.yaml"), svc_template)?;
-
-        let sample_product = ProductCatalog {
-            id: "cosell".to_string(),
-            name: "Cosell".to_string(),
-            kind: "product".to_string(),
-            description: "Partner collaboration and agent-assisted workflows.".to_string(),
-            agent: ProductAgent {
-                name: "Cosell Agent".to_string(),
-                instructions: "Understand Cosell product context.".to_string(),
-            },
-            knowledge_sources: vec![],
-            services: ProductServices {
-                primary: vec![],
-                related: vec![],
-            },
-            routing_rules: vec![],
-        };
-        ws_catalog::add_product(root, &sample_product)?;
-
-        let sample_team = TeamCatalog {
-            id: "platform".to_string(),
-            name: "Platform Team".to_string(),
-            kind: "team".to_string(),
-            description: "Core infrastructure, templates, and libraries.".to_string(),
-            lead: Some("alice".to_string()),
-            members: vec!["bob".to_string(), "charlie".to_string()],
-        };
-        ws_catalog::add_team(root, &sample_team)?;
+        fs::write(&svc_template_path, svc_template)?;
     }
 
     let start_discovery =
@@ -599,6 +675,19 @@ docs:
     }
 
     println!("\nAI Workspace initialized successfully!");
+    println!();
+    println!("Next steps:");
+    println!(
+        "  1. Set up your products — follow catalog/products/README.md, then run `ws add product <name>`"
+    );
+    println!(
+        "  2. Set up your teams — follow catalog/teams/README.md, then run `ws add team <name>`"
+    );
+    println!(
+        "  3. (Optional) Add services — follow catalog/services/README.md, then run `ws discover` or `ws add repo <owner>/<name>`"
+    );
+    println!();
+    println!("Tip: run `ws ai manifest` to see the full AI Command API.");
     Ok(())
 }
 
@@ -760,13 +849,13 @@ async fn handle_discover(
                         map
                     },
                     issue_tracking: CatalogIssueTracking {
-                        provider: "jira".to_string(),
+                        provider: ctx.config.issue_provider.r#type.clone(),
                         project: ctx
                             .config
                             .issue_provider
                             .default_project
                             .clone()
-                            .unwrap_or_else(|| "PLATFORM".to_string()),
+                            .unwrap_or_default(),
                         component: None,
                     },
                     docs: vec![CatalogDoc {
@@ -860,13 +949,13 @@ async fn handle_add(
                     map
                 },
                 issue_tracking: CatalogIssueTracking {
-                    provider: "jira".to_string(),
+                    provider: ctx.config.issue_provider.r#type.clone(),
                     project: ctx
                         .config
                         .issue_provider
                         .default_project
                         .clone()
-                        .unwrap_or_else(|| "PLATFORM".to_string()),
+                        .unwrap_or_default(),
                     component: None,
                 },
                 docs: vec![CatalogDoc {

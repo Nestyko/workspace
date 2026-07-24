@@ -7,15 +7,15 @@ This workflow details pushing modifications across multiple repositories and ope
 1. **Verify Workspace status:**
    Check modified files and current commits across the workspace worktrees:
    ```bash
-   ws ai run workspace.status --input '{"epic_key": "COSELL-123"}'
+   ws ai run workspace.status --input '{"epic_key": "ACME-123"}'
    ```
 2. **Create Pull Requests:**
    Trigger PR creation for the changed services:
    ```bash
    ws ai run pr.create --input '{
-     "workspace_id": "COSELL-123",
+     "workspace_id": "ACME-123",
      "services": ["notification", "intelligence"],
-     "title": "[COSELL-123] Support Slack partner integration",
+     "title": "[ACME-123] Support Slack partner integration",
      "body": "Implement templates and logic for Slack agents.",
      "draft": false
    }'

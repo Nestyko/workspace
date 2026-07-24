@@ -39,7 +39,7 @@ These are facts discovered by reading the code, not opinions. They drive every d
 
 - `catalog/{services,products,teams,knowledge}/` dirs (via `ws_catalog::ensure_catalog_dirs`)
 - a single `templates/service.yaml` (embedded string literal)
-- one sample `ProductCatalog` ("cosell") + one sample `TeamCatalog` ("platform")
+- one sample `ProductCatalog` ("acme") + one sample `TeamCatalog` ("platform")
 - `.ws-config.local.yaml`
 
 It does **not** scaffold `workflows/`, `config/providers/`, `schemas/`, `docs/`,

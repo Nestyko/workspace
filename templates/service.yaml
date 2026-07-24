@@ -7,7 +7,7 @@ description: >
 team: platform
 
 products:
-  - cosell
+  - product-id
 
 repo:
   provider: github
@@ -45,7 +45,7 @@ commands:
 #   reason: Pure library, no deploy target.
 
 issue_tracking:
-  provider: jira
+  provider: dex
   project: PLATFORM
   component: Service Component
 

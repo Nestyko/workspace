@@ -5,13 +5,13 @@ This configuration directs how the AI agent reads from and updates the Confluenc
 ## Space Organization
 
 ### Spaces
-- **COSELL**: Confluence space for Cosell Product.
+- **ACME**: Confluence space for the Acme product.
 - **PLATFORM**: Confluence space for Platform engineering.
 
 ## Document Templates
 
 ### Architecture Pages
-- Save all architecture descriptions under space `COSELL` or `PLATFORM` with the page title format:
+- Save all architecture descriptions under space `ACME` or `PLATFORM` with the page title format:
   `[Architecture] <Service Name>`
 - Body format must use XHTML storage format containing structural tags.
 

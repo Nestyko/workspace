@@ -12,5 +12,5 @@ Define mapping of issues to types:
 
 ### Space Mappings
 Define mappings of spaces / folders:
-- Space `COSELL` is used for sales operations and partner integrations.
+- Space `ACME` is used for the Acme product area.
 - Space `PLATFORM` is used for core libraries and shared tools.
