@@ -2294,6 +2294,7 @@ dependencies = [
  "ws-catalog",
  "ws-config",
  "ws-core",
+ "ws-dev",
  "ws-editors",
  "ws-kb",
  "ws-provider-dex",
@@ -2330,6 +2331,20 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "ws-dev"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "directories",
+ "miette",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "ws-core",
 ]
 
 [[package]]
