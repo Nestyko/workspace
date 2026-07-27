@@ -480,6 +480,85 @@ See `templates/team.yaml` for the full annotated shape and `schemas/team.schema.
 for the validation contract.
 "#;
 
+/// The agent skills `ws init` auto-installs into the customer's repo. Only
+/// `ws-repo-init` and `ws-self-heal` ship by default; `ws-init` is a
+/// headless-bootstrap skill not needed after `ws init` has run.
+const INIT_SKILLS: &[&str] = &["ws-repo-init", "ws-self-heal"];
+
+/// Installs named skills from the embedded `skills/` tree into the customer's
+/// repo, matching the layout the `skills` CLI produces so a later
+/// `bunx skills add .` is a no-op for these entries:
+///   - real files under `.agents/skills/<name>/`
+///   - relative symlinks at `.pi/skills/<name>` and `.claude/skills/<name>`
+///     (pointing at `../../.agents/skills/<name>`) so pi and Claude Code pick
+///     them up.
+///
+/// Returns the names of the skills actually written. A skill missing from the
+/// embedded tree is skipped (not fatal) so init never fails just because a
+/// skill was renamed upstream — the caller narrates the difference.
+fn install_repo_skills(root: &Path, names: &[&str]) -> Result<Vec<String>, WorkspaceError> {
+    let mut installed = Vec::new();
+    let skill_root = root.join(".agents").join("skills");
+    for &name in names {
+        let Some(dir) = assets::SKILLS.get_dir(name) else {
+            continue;
+        };
+        fs::create_dir_all(skill_root.join(name))?;
+        write_skill_tree(dir, &skill_root)?;
+
+        let rel = format!("../../.agents/skills/{name}");
+        for harness_dir in [".pi/skills", ".claude/skills"] {
+            let link = root.join(harness_dir).join(name);
+            symlink_skill(&rel, &link);
+        }
+        installed.push(name.to_string());
+    }
+    Ok(installed)
+}
+
+/// Recursively writes every file under the embedded skill `dir` into `skill_root`,
+/// preserving each file's path relative to the embedded `skills/` root.
+/// `include_dir::File::path()` is root-relative (e.g. `ws-repo-init/SKILL.md`),
+/// so joining onto `skill_root` lands files at `.agents/skills/<name>/...`.
+fn write_skill_tree(dir: &include_dir::Dir, skill_root: &Path) -> Result<(), WorkspaceError> {
+    use include_dir::DirEntry;
+    for entry in dir.entries() {
+        match entry {
+            DirEntry::File(f) => {
+                let p = skill_root.join(f.path());
+                if let Some(parent) = p.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::write(&p, f.contents())?;
+            }
+            DirEntry::Dir(d) => {
+                fs::create_dir_all(skill_root.join(d.path()))?;
+                write_skill_tree(d, skill_root)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Creates a relative symlink at `link` pointing at `target`. Best-effort on
+/// non-Unix hosts (falls back to copying the skill directory).
+fn symlink_skill(target: &str, link: &Path) {
+    if let Some(parent) = link.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::symlink;
+        let _ = fs::remove_file(link);
+        let _ = symlink(target, link);
+    }
+    #[cfg(not(unix))]
+    {
+        //保守回退：直接复制一份（不标准，但保证文件可读）。
+        let _ = (target, link);
+    }
+}
+
 async fn handle_init(root: &Path, ctx: &CommandContext) -> Result<(), WorkspaceError> {
     println!("Welcome to AI Workspace.\n");
 
@@ -674,17 +753,46 @@ docs:
         handle_discover(root, &temp_ctx, Some(50)).await?;
     }
 
+    // Install the repo-level agent skills that `ws init` ships with.
+    // Only `ws-repo-init` (bootstrap each cataloged repo) and `ws-self-heal`
+    // (the healthcheck → fix → record loop) are auto-installed; `ws-init` is a
+    // headless-bootstrap skill that is not needed once `ws init` has run.
+    let installed_skills = install_repo_skills(root, INIT_SKILLS)?;
+
     println!("\nAI Workspace initialized successfully!");
     println!();
+    if !installed_skills.is_empty() {
+        println!("Installed agent skills (repo-level, under .agents/skills/):");
+        if installed_skills.iter().any(|s| s == "ws-repo-init") {
+            println!("  ✓ ws-repo-init — bootstrap each cataloged repo to ready-for-deep-pass.");
+            println!("      Invoke it from your harness as `/ws-repo-init`.");
+        }
+        if installed_skills.iter().any(|s| s == "ws-self-heal") {
+            println!("  ✓ ws-self-heal — run the per-repo healthcheck → fix → record loop.");
+            println!("      Invoke it from your harness as `/ws-self-heal`.");
+        }
+        println!("  Symlinked into .pi/skills/ and .claude/skills/ for pi and Claude Code.");
+        let missing = INIT_SKILLS
+            .iter()
+            .filter(|n| !installed_skills.iter().any(|s| s == *n))
+            .collect::<Vec<_>>();
+        if !missing.is_empty() {
+            println!("  Note: not installed (missing from source tree): {missing:?}.");
+        }
+        println!();
+    }
     println!("Next steps:");
     println!(
-        "  1. Set up your products — follow catalog/products/README.md, then run `ws add product <name>`"
+        "  1. Initialize your repos — with your harness run `/ws-repo-init` to bootstrap every cataloged repo from zero to \"cataloged + onboarding artifact + smoke-validated\" (see .agents/skills/ws-repo-init/SKILL.md)."
     );
     println!(
-        "  2. Set up your teams — follow catalog/teams/README.md, then run `ws add team <name>`"
+        "  2. Set up your products — follow catalog/products/README.md, then run `ws add product <name>`."
     );
     println!(
-        "  3. (Optional) Add services — follow catalog/services/README.md, then run `ws discover` or `ws add repo <owner>/<name>`"
+        "  3. Set up your teams — follow catalog/teams/README.md, then run `ws add team <name>`."
+    );
+    println!(
+        "  4. (Optional) Add services — follow catalog/services/README.md, then run `ws discover` or `ws add repo <owner>/<name>`."
     );
     println!();
     println!("Tip: run `ws ai manifest` to see the full AI Command API.");
@@ -1348,6 +1456,85 @@ mod kb_cli_tests {
         assert!(
             msg.contains("SCHEMA.md"),
             "error should list a valid asset name: {msg}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod skill_install_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// `ws init` installs exactly the two curated skills (`ws-repo-init`,
+    /// `ws-self-heal`) at the repo level, as real files under
+    /// `.agents/skills/<name>/` and (on Unix) as relative symlinks under
+    /// `.pi/skills/` and `.claude/skills/`.
+    #[test]
+    fn installs_curated_skills_at_repo_level() {
+        let tmp = TempDir::new().unwrap();
+        let installed = install_repo_skills(tmp.path(), INIT_SKILLS).unwrap();
+
+        assert_eq!(
+            installed,
+            vec!["ws-repo-init".to_string(), "ws-self-heal".to_string()],
+            "both curated skills should be installed and reported in order"
+        );
+
+        for name in INIT_SKILLS {
+            let skill_md = tmp
+                .path()
+                .join(".agents")
+                .join("skills")
+                .join(name)
+                .join("SKILL.md");
+            assert!(
+                skill_md.is_file(),
+                ".agents/skills/{name}/SKILL.md should be written"
+            );
+            // The on-disk bytes must equal the embedded source bytes.
+            let embedded = assets::SKILLS
+                .get_file(format!("{name}/SKILL.md"))
+                .expect("embedded skill file must exist");
+            assert_eq!(
+                std::fs::read(&skill_md).unwrap().as_slice(),
+                embedded.contents(),
+                "installed {name}/SKILL.md must match the embedded source"
+            );
+
+            #[cfg(unix)]
+            {
+                for harness_dir in [".pi/skills", ".claude/skills"] {
+                    let link = tmp.path().join(harness_dir).join(name);
+                    assert!(
+                        link.is_symlink(),
+                        "{harness_dir}/{name} should be a symlink"
+                    );
+                    assert_eq!(
+                        std::fs::read_link(&link).unwrap().to_string_lossy(),
+                        format!("../../.agents/skills/{name}"),
+                        "symlink target must be the relative repo-relative path"
+                    );
+                    // Link must resolve to the real file.
+                    assert!(
+                        link.join("SKILL.md").is_file(),
+                        "followed symlink should resolve to SKILL.md"
+                    );
+                }
+            }
+        }
+    }
+
+    /// A missing skill is skipped, not fatal — init must never fail just
+    /// because a skill was renamed upstream.
+    #[test]
+    fn missing_skill_is_skipped_not_fatal() {
+        let tmp = TempDir::new().unwrap();
+        let installed =
+            install_repo_skills(tmp.path(), &["ws-repo-init", "does-not-exist"]).unwrap();
+        assert_eq!(
+            installed,
+            vec!["ws-repo-init".to_string()],
+            "only the present skill should be reported"
         );
     }
 }

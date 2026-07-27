@@ -9,6 +9,13 @@
 //! This is mechanism-only: no Tier-1/2/3 asset subtrees live here yet.
 //! Subsequent features drop their assets under this directory and build on
 //! the macro.
+//!
+//! The `SKILLS` tree is the one exception to the "assets live under
+//! `crates/ws-cli/assets/`" rule: agent skills have a dev-facing existence at
+//! the workspace-root `skills/` directory (edited by hand, distributed via
+//! `bunx skills add .`), so that directory is the single source of truth and is
+//! embedded directly. `ws init` selects a subset from it and installs them at
+//! the repo level into the customer's workspace.
 
 use include_dir::{include_dir, Dir};
 
@@ -22,6 +29,17 @@ use include_dir::{include_dir, Dir};
 /// which is expected for this deliberately-standalone wiring ticket.
 #[allow(dead_code)]
 pub static ASSETS: Dir = include_dir!("$CARGO_MANIFEST_DIR/assets");
+
+/// The embedded agent-skills tree, rooted at the workspace `skills/` directory
+/// (one level above the crate root, i.e.
+/// `$CARGO_MANIFEST_DIR/../../skills`).
+///
+/// This is the single source of truth for skill prompts: the same files edited
+/// for `bunx skills add .` are embedded into the binary, so `ws init` installs
+/// exactly what ships with the source tree. `ws init` only auto-installs a
+/// curated subset (`ws-repo-init`, `ws-self-heal`); the rest (e.g. `ws-init`)
+/// are present in the tree for the `skills` CLI but not auto-installed.
+pub static SKILLS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../skills");
 
 #[cfg(test)]
 mod tests {
