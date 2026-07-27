@@ -64,15 +64,23 @@ jobs:
           ZEN_API_KEY: ${{ secrets.ZEN_API_KEY }}
         run: |
           opencode run /understand --auto-update
-          # The artifact is written to .understand-anything/knowledge-graph.json
-          # (plus config.json / plugin manifests, which stay plain-text-committed).
+          # The artifact is written to .ua/knowledge-graph.json (preferred dir,
+          # current Understand-Anything default). If this repo still uses the
+          # legacy `.understand-anything/` directory locally, migrate it first
+          # (`git mv .understand-anything .ua`) so CI and local agree.
 
       - name: Commit refreshed artifact (skip-ci)
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Only commit if the artifact changed.
-          if ! git diff --quiet -- .understand-anything/knowledge-graph.json; then
+          # Commit the preferred `.ua/` artifact if it changed; fall back to the
+          # legacy `.understand-anything/` location for repos that have not yet
+          # migrated (see skills/ws-repo-init/SKILL.md Step 4).
+          if ! git diff --quiet -- .ua/knowledge-graph.json; then
+            git add .ua/knowledge-graph.json
+            git commit -m "chore(understand-anything): refresh knowledge-graph.json [skip ci]"
+            git push
+          elif ! git diff --quiet -- .understand-anything/knowledge-graph.json; then
             git add .understand-anything/knowledge-graph.json
             git commit -m "chore(understand-anything): refresh knowledge-graph.json [skip ci]"
             git push
@@ -103,6 +111,11 @@ jobs:
 # -----------------------------------------------------------------------------
 # .gitattributes SNIPPET (apply once per consuming repo at repo root):
 #
+# Preferred (`.ua/`, current Understand-Anything default):
+#   .ua/knowledge-graph.json binary -diff linguist-generated
+#   .ua/**                 linguist-generated
+#
+# Legacy fallback (`.understand-anything/`, keep only during migration):
 #   .understand-anything/knowledge-graph.json binary -diff linguist-generated
 #   .understand-anything/**             linguist-generated
 #
@@ -113,6 +126,6 @@ jobs:
 #   - linguist-generated → GitHub UI collapses/hides the diff in PRs and excludes
 #                 the artifact from language stats.
 #
-# Leave `.understand-anything/config.json` and any plugin manifests committed as
-# plain text — those are small, human-curated.
+# Leave `.ua/config.json` (and the legacy `.understand-anything/config.json`) and
+# any plugin manifests committed as plain text — those are small, human-curated.
 # -----------------------------------------------------------------------------

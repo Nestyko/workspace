@@ -18,3 +18,6 @@ tracing = { workspace = true }
 libc = { workspace = true }
 ws-core = { workspace = true }
 ws-catalog = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
