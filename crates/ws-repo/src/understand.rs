@@ -1,7 +1,8 @@
 //! `repo.understand.verify` — the Point #1 test.
 //!
 //! Asserts three things:
-//! 1. `.understand-anything/knowledge-graph.json` exists at the repo root, parses
+//! 1. `.ua/knowledge-graph.json` (preferred) or the legacy
+//!    `.understand-anything/knowledge-graph.json` exists at the repo root, parses
 //!    as JSON, and is non-empty.
 //! 2. The GitHub Action run on the onboarding PR completed green.
 //! 3. That PR got merged.
@@ -72,12 +73,17 @@ impl AiCommand for RepoUnderstandVerifyCommand {
         let mut evidence = String::new();
 
         // (i) Artifact exists + parses + non-empty.
-        let artifact_path = repo_root.join(".understand-anything/knowledge-graph.json");
-        let artifact_ok = if !artifact_path.exists() {
-            evidence.push_str("artifact: not found at .understand-anything/knowledge-graph.json; ");
-            false
-        } else {
-            match std::fs::read_to_string(&artifact_path) {
+        // Prefer `.ua/` (current Understand-Anything default), falling back to the
+        // legacy `.understand-anything/` directory.
+        let artifact_path = crate::artifact::knowledge_graph_path(repo_root);
+        let artifact_ok = match artifact_path.as_ref() {
+            None => {
+                evidence.push_str(
+                    "artifact: not found at .ua/knowledge-graph.json or .understand-anything/knowledge-graph.json; ",
+                );
+                false
+            }
+            Some(path) => match std::fs::read_to_string(path) {
                 Err(e) => {
                     evidence.push_str(&format!("artifact: unreadable: {}; ", e));
                     false
@@ -107,7 +113,7 @@ impl AiCommand for RepoUnderstandVerifyCommand {
                         }
                     }
                 },
-            }
+            },
         };
 
         // (ii) Action run green.

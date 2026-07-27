@@ -5,10 +5,24 @@
 # (Point #1) while suppressing its diff in PRs and excluding it from language stats.
 #
 # Source of truth: workflows/repo-init.md §1 and templates/understand-anything-action.yml.
+#
+# Directory preference (Decision #3): `.ua/` is the current Understand-Anything
+# default and the preferred location. The legacy `.understand-anything/` form is
+# kept below as a fallback so existing repos still satisfy the #1 gate without a
+# forced migration. New repos: use `.ua/`. Legacy repos: see the migration prompt
+# in `skills/ws-repo-init/SKILL.md` Step 4 (`git mv .understand-anything .ua`).
 
+# ---- Preferred: `.ua/` (current Understand-Anything default) ----
+.ua/knowledge-graph.json binary -diff linguist-generated
+.ua/**                 linguist-generated
+
+# ---- Legacy: `.understand-anything/` (older Understand-Anything default) ----
+# Keep these lines only while a legacy artifact dir is still in use. They are
+# harmless when the `.ua/` lines above are also present (both can coexist during
+# a migration window).
 .understand-anything/knowledge-graph.json binary -diff linguist-generated
 .understand-anything/**             linguist-generated
 
-# Leave `.understand-anything/config.json` and any plugin manifests
-# (`.claude-plugin`, `.cursor-plugin`, `.copilot-plugin`) committed as plain text —
-# those are small, human-curated and SHOULD diff normally.
+# Leave `.ua/config.json` (and the legacy `.understand-anything/config.json`) and
+# any plugin manifests (`.claude-plugin`, `.cursor-plugin`, `.copilot-plugin`)
+# committed as plain text — those are small, human-curated and SHOULD diff normally.

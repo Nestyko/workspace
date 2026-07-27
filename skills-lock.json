@@ -6,6 +6,11 @@
       "sourceType": "local",
       "computedHash": "7c347759f2040ff7aa3b178a2b6081dc58f9ea1ab75eefc308130362226e519a"
     },
+    "ws-repo-init": {
+      "source": "/Users/nestyko/Documents/playground/ws",
+      "sourceType": "local",
+      "computedHash": "436863b99e24e6121c4e9799bfacb49b286baca83ab32987959e85efcf6936c0"
+    },
     "ws-self-heal": {
       "source": "/Users/nestyko/Documents/playground/ws",
       "sourceType": "local",

@@ -6,6 +6,7 @@
 //! scaffold, never judge, and never own an LLM. They read, execute primitives,
 //! emit specs, and validate writes. The harness fills gaps and drives fix-loops.
 
+pub mod artifact;
 pub mod fix_loop;
 pub mod healthcheck;
 pub mod run;

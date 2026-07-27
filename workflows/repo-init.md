@@ -48,22 +48,40 @@
 
 ## 1. Point #1 — Understand-Anything · *file + CI existence*
 
+**Directory preference:** `.ua/` is the current Understand-Anything default and the
+preferred artifact location. The legacy `.understand-anything/` form is accepted as a
+fallback — `repo.healthcheck` (#1 gate) and `repo.understand.verify` resolve the
+artifact by probing `.ua/` first, then `.understand-anything/`. No forced migration:
+legacy repos keep passing; the `ws-repo-init` skill prompts the customer to migrate
+(`git mv .understand-anything .ua` + update `.gitattributes`) when it finds a legacy dir.
+
 **Healthcheck gate** (status `present`): `.gitattributes` contains the canonical
-diff-suppression lines **AND** `.github/workflows/understand-anything.yml` exists **AND**
-`.understand-anything/knowledge-graph.json` is present in the tree. If
-`understand_anything.enabled` is unset/false, the row is `not_declared` (blocking).
+diff-suppression lines for the artifact dir in use (`.ua/` **or** the legacy
+`.understand-anything/`) **AND** `.github/workflows/understand-anything.yml` exists
+**AND** the `knowledge-graph.json` artifact is present in the tree (under `.ua/` or
+`.understand-anything/`). If `understand_anything.enabled` is unset/false, the row is
+`not_declared` (blocking).
 
 **Remediation:**
 1. Set `understand_anything: { enabled: true }` via `catalog.service.update`.
-2. Add the canonical `.gitattributes` lines (commit the artifact; suppress the diff):
+2. Add the canonical `.gitattributes` lines (commit the artifact; suppress the diff).
+   Preferred (new repos):
+   ```gitattributes
+   .ua/knowledge-graph.json binary -diff linguist-generated
+   .ua/**                 linguist-generated
+   ```
+   Legacy fallback (existing repos, keep during migration):
    ```gitattributes
    .understand-anything/knowledge-graph.json binary -diff linguist-generated
    .understand-anything/**             linguist-generated
    ```
-   Leave `.understand-anything/config.json` and any plugin manifests committed as plain text.
+   Leave `.ua/config.json` (and the legacy `.understand-anything/config.json`) and any
+   plugin manifests committed as plain text.
 3. Ship the GitHub Action with `on: pull_request` (so it runs against the onboarding branch
    before merge). Use the validated default in `templates/understand-anything-action.yml`
-   (OpenCode harness + Zen provider; company API key from a GitHub Actions secret).
+   (OpenCode harness + Zen provider; company API key from a GitHub Actions secret). The
+   template commits the `.ua/` artifact by default, falling back to `.understand-anything/`
+   for repos that have not yet migrated.
 4. Open the PR that adds the workflow + artifact + `.gitattributes`. The Action runs on the PR.
 5. **After the Action completes green and the PR is merged**, the harness flips the trigger
    to production: `on: { push: {}, workflow_dispatch: }` with a job-level conditional

@@ -244,11 +244,9 @@ fn check_understand_anything(
     }
 
     let gitattributes = repo_root.join(".gitattributes");
-    let gitattributes_ok = if let Ok(content) = fs::read_to_string(&gitattributes) {
-        content.contains(".understand-anything/knowledge-graph.json")
-            && content.contains(".understand-anything/")
-    } else {
-        false
+    let gitattributes_ok = match fs::read_to_string(&gitattributes) {
+        Ok(content) => crate::artifact::gitattributes_suppression_ok(&content),
+        Err(_) => false,
     };
 
     let workflows_dir = repo_root.join(".github/workflows");
@@ -261,9 +259,10 @@ fn check_understand_anything(
     });
     let workflow_ok = named_workflow_ok || dir_has_workflow_mention(workflows_dir);
 
-    let artifact_ok = repo_root
-        .join(".understand-anything/knowledge-graph.json")
-        .exists();
+    // Artifact lives under the preferred `.ua/` dir, falling back to the legacy
+    // `.understand-anything/` dir (see `artifact::knowledge_graph_path`).
+    let artifact_dir = crate::artifact::resolved_dir(repo_root);
+    let artifact_ok = artifact_dir.is_some();
 
     let satisfied = [gitattributes_ok, workflow_ok, artifact_ok]
         .iter()
@@ -277,10 +276,13 @@ fn check_understand_anything(
         CheckStatus::Partial
     };
     let evidence = format!(
-        "enabled=true; gitattributes={} workflow={} artifact={}",
+        "enabled=true; gitattributes={} workflow={} artifact={}{}",
         yn(gitattributes_ok),
         yn(workflow_ok),
-        yn(artifact_ok)
+        yn(artifact_ok),
+        artifact_dir
+            .map(|d| format!(" ({})", d))
+            .unwrap_or_default()
     );
     HealthcheckRow {
         check_id: "1".into(),
@@ -288,7 +290,7 @@ fn check_understand_anything(
         status,
         blocking: true,
         evidence,
-        run_hint: "Commit .understand-anything/knowledge-graph.json with .gitattributes diff-suppression lines + .github/workflows/understand-anything.yml; verify with ws ai run repo.understand.verify.".into(),
+        run_hint: "Commit the knowledge-graph.json artifact under .ua/ (preferred) or .understand-anything/ (legacy) with the .gitattributes diff-suppression lines + .github/workflows/understand-anything.yml; verify with ws ai run repo.understand.verify.".into(),
     }
 }
 
