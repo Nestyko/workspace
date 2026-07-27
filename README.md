@@ -86,6 +86,12 @@ ws status ACME-123
 
 # Push branches and create pull requests for modified repositories
 ws pr create ACME-123 --all
+
+# Test an in-flight `ws` PR build on your laptop (dev binaries, never touches stable `ws`)
+ws dev-install   https://github.com/Nestyko/workspace/pull/14            # builds & installs as ws-dev
+ws dev-install   https://github.com/Nestyko/workspace/pull/14 --name ws-pr14
+ws dev-uninstall https://github.com/Nestyko/workspace/pull/14            # removes all dev binaries from that PR
+ws dev-purge                                                # remove ALL dev binaries
 ```
 
 ---

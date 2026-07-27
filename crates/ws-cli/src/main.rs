@@ -50,6 +50,9 @@ use ws_repo::{
     RepoVerifyCommand,
 };
 
+// Dev imports
+use ws_dev::{dev_install, dev_purge, dev_uninstall, DevInstallInput, DEFAULT_DEV_NAME};
+
 // Provider command imports
 use ws_providers::{
     PrCreateCommand, ProviderCodeCheckAuthCommand, ProviderCodeGetRepoCommand,
@@ -114,6 +117,42 @@ enum Commands {
         #[command(subcommand)]
         kb_sub: KbSub,
     },
+
+    #[command(about = "Install a `ws` dev binary built from a GitHub Pull Request")]
+    DevInstall(DevInstallArgs),
+
+    #[command(about = "Uninstall every `ws` dev binary installed from a PR")]
+    DevUninstall(DevUninstallArgs),
+
+    #[command(about = "Remove all installed `ws` dev binaries")]
+    DevPurge(DevPurgeArgs),
+}
+
+#[derive(clap::Args, Clone, Debug)]
+struct DevInstallArgs {
+    #[arg(help = "GitHub PR URL (e.g. https://github.com/Nestyko/workspace/pull/14)")]
+    pr_url: String,
+
+    #[arg(
+        long,
+        help = "Name for the dev binary (default: ws-dev). Refuses 'ws'."
+    )]
+    name: Option<String>,
+
+    #[arg(long, help = "Replace an existing binary at the destination path")]
+    force: bool,
+}
+
+#[derive(clap::Args, Clone, Debug)]
+struct DevUninstallArgs {
+    #[arg(help = "GitHub PR URL of the dev install(s) to remove")]
+    pr_url: String,
+}
+
+#[derive(clap::Args, Clone, Debug)]
+struct DevPurgeArgs {
+    #[arg(long, short = 'y', help = "Do not prompt for confirmation")]
+    yes: bool,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -380,6 +419,15 @@ async fn run_cli(
         }
         Commands::Kb { kb_sub } => {
             handle_kb(workspace_root, kb_sub)?;
+        }
+        Commands::DevInstall(args) => {
+            handle_dev_install(args)?;
+        }
+        Commands::DevUninstall(args) => {
+            handle_dev_uninstall(args)?;
+        }
+        Commands::DevPurge(args) => {
+            handle_dev_purge(args)?;
         }
     }
     Ok(())
@@ -697,6 +745,92 @@ fn handle_kb(root: &Path, kb_sub: KbSub) -> Result<(), WorkspaceError> {
             let summary = ws_kb::run_init(root, reset.as_deref())?;
             println!("{summary}");
         }
+    }
+    Ok(())
+}
+
+fn handle_dev_install(args: DevInstallArgs) -> Result<(), WorkspaceError> {
+    let name = args
+        .name
+        .clone()
+        .unwrap_or_else(|| DEFAULT_DEV_NAME.to_string());
+    let pr = ws_dev::parse_pr_url(&args.pr_url)?;
+    println!(
+        "Building dev binary `{name}` for PR {}/{}#{} ...",
+        pr.owner, pr.repo, pr.pr_number
+    );
+    println!(
+        "(this clones/fetches the repo and runs `cargo build --release`; first builds can take a while)"
+    );
+    let out = dev_install(DevInstallInput {
+        pr_url: args.pr_url,
+        name: Some(name.clone()),
+        force: args.force,
+    })?;
+    println!();
+    if out.overwritten {
+        println!("\n✓ Replaced existing dev binary:");
+    } else {
+        println!("\n✓ Installed dev binary:");
+    }
+    println!("    name:        {}", out.install.name);
+    println!("    path:        {}", out.install.binary_path);
+    println!(
+        "    pr:          {}/{}#{}",
+        out.install.owner, out.install.repo, out.install.pr_number
+    );
+    println!(
+        "    git sha:     {}",
+        out.install.git_sha.as_deref().unwrap_or("(unknown)")
+    );
+    println!("    installed:   {}", out.install.installed_at);
+    println!(
+        "\nRun it with `{} --help` (it shares its interface with `ws`).",
+        out.install.name
+    );
+    println!("Uninstall with: ws dev-uninstall {}", out.install.pr_url);
+    Ok(())
+}
+
+fn handle_dev_uninstall(args: DevUninstallArgs) -> Result<(), WorkspaceError> {
+    let out = dev_uninstall(&args.pr_url)?;
+    if out.removed.is_empty() {
+        println!("No dev binaries found for this PR.");
+        return Ok(());
+    }
+    println!(
+        "Removed {} dev binary/binary for this PR:",
+        out.removed.len()
+    );
+    for e in &out.removed {
+        println!("  - {} ({})", e.name, e.binary_path);
+    }
+    Ok(())
+}
+
+fn handle_dev_purge(args: DevPurgeArgs) -> Result<(), WorkspaceError> {
+    let existing = ws_dev::load_registry()?;
+    if existing.installs.is_empty() {
+        println!("No dev binaries to purge.");
+        return Ok(());
+    }
+    if !args.yes {
+        let proceed = Confirm::new(&format!(
+            "Remove all {} dev binary/binary(ies)? This cannot be undone.",
+            existing.installs.len()
+        ))
+        .with_default(false)
+        .prompt()
+        .map_err(|_| WorkspaceError::Other("Cancelled".to_string()))?;
+        if !proceed {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+    let out = dev_purge()?;
+    println!("Purged {} dev binary/binary(ies):", out.removed.len());
+    for e in &out.removed {
+        println!("  - {} ({})", e.name, e.binary_path);
     }
     Ok(())
 }
@@ -1349,5 +1483,72 @@ mod kb_cli_tests {
             msg.contains("SCHEMA.md"),
             "error should list a valid asset name: {msg}"
         );
+    }
+
+    /// `ws dev-install` / `dev-uninstall` / `dev-purge` all wire into the clap
+    /// command tree as top-level hyphenated subcommands — guards against
+    /// accidental removal of the wiring.
+    #[test]
+    fn dev_subcommands_parse() {
+        let install = Cli::try_parse_from([
+            "ws",
+            "dev-install",
+            "https://github.com/Nestyko/workspace/pull/14",
+        ]);
+        assert!(
+            install.is_ok(),
+            "ws dev-install <url> should parse: {:?}",
+            install.err()
+        );
+        match install.unwrap().command {
+            Commands::DevInstall(args) => {
+                assert_eq!(args.pr_url, "https://github.com/Nestyko/workspace/pull/14");
+                assert_eq!(args.name, None);
+                assert!(!args.force);
+            }
+            other => panic!("expected DevInstall, got {other:?}"),
+        }
+
+        let install_named = Cli::try_parse_from([
+            "ws",
+            "dev-install",
+            "https://github.com/Nestyko/workspace/pull/14",
+            "--name",
+            "ws-pr14",
+            "--force",
+        ]);
+        assert!(install_named.is_ok());
+        if let Commands::DevInstall(args) = install_named.unwrap().command {
+            assert_eq!(args.name.as_deref(), Some("ws-pr14"));
+            assert!(args.force);
+        }
+
+        let uninstall = Cli::try_parse_from([
+            "ws",
+            "dev-uninstall",
+            "https://github.com/Nestyko/workspace/pull/14",
+        ]);
+        assert!(uninstall.is_ok());
+        assert!(matches!(
+            uninstall.unwrap().command,
+            Commands::DevUninstall(_)
+        ));
+
+        let purge = Cli::try_parse_from(["ws", "dev-purge"]);
+        assert!(purge.is_ok());
+        assert!(matches!(purge.unwrap().command, Commands::DevPurge(_)));
+    }
+
+    /// `ws dev-install --name ws` must be rejected before any git/cargo work —
+    /// we never clobber the stable `ws` binary.
+    #[test]
+    fn dev_install_refuses_to_clobber_stable_ws() {
+        let err = ws_dev::dev_install(ws_dev::DevInstallInput {
+            pr_url: "https://github.com/Nestyko/workspace/pull/14".to_string(),
+            name: Some("ws".to_string()),
+            force: true,
+        })
+        .unwrap_err();
+        assert!(err.to_string().contains("stable"), "got: {err}");
     }
 }
