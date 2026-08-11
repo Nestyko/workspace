@@ -7,17 +7,56 @@
     "create_branches": {
       "type": "boolean"
     },
+    "created_at": {
+      "type": "string",
+      "description": "RFC3339 creation timestamp; absent in pre-existing/hand-written workspaces"
+    },
+    "description": {
+      "type": "string"
+    },
     "editor": {
       "type": "string"
     },
     "id": {
-      "type": "string"
+      "type": "string",
+      "description": "Stable identity — the feature slug (folder name is derived, not identity)"
     },
     "services": {
       "items": {
         "type": "string"
       },
       "type": "array"
+    },
+    "tasks": {
+      "items": {
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "repos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "slug"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "ticket": {
+      "type": "string",
+      "description": "Issue key (e.g. EPIC-123); omitted/absent while the feature is unticketed"
+    },
+    "title": {
+      "type": "string"
     }
   },
   "required": [

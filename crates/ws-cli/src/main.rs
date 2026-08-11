@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 
 use std::fs;
+use std::io::IsTerminal;
 
 use ws_core::command::{AiCommand, CommandRegistry};
 use ws_core::context::CommandContext;
@@ -40,8 +41,9 @@ use ws_catalog::{
 
 // Workspace imports
 use ws_workspace::{
-    WorkspaceAddServiceCommand, WorkspaceCreateCommand, WorkspaceGenerateEditorFilesCommand,
-    WorkspaceLockCommand, WorkspaceStatusCommand,
+    WorkspaceAddServiceCommand, WorkspaceAddTaskCommand, WorkspaceAttachCommand,
+    WorkspaceCreateCommand, WorkspaceGenerateEditorFilesCommand, WorkspaceLockCommand,
+    WorkspaceStatusCommand,
 };
 
 // Repo imports
@@ -57,10 +59,11 @@ use ws_dev::{dev_install, dev_purge, dev_uninstall, DevInstallInput, DEFAULT_DEV
 use ws_providers::{
     PrCreateCommand, ProviderCodeCheckAuthCommand, ProviderCodeGetRepoCommand,
     ProviderCodeListRecentReposCommand, ProviderConfigGetInstructionsCommand,
-    ProviderConfigSyncInstructionsCommand, ProviderDocCheckAuthCommand,
-    ProviderDocCreatePageCommand, ProviderDocGetPageCommand, ProviderDocUpdatePageCommand,
-    ProviderIssueCheckAuthCommand, ProviderIssueCommentCommand, ProviderIssueCreateEpicCommand,
-    ProviderIssueCreateIssueCommand, ProviderIssueGetIssueCommand, ProviderIssueLinkCommand,
+    ProviderConfigSyncInstructionsCommand, ProviderConfigSyncInstructionsInput,
+    ProviderDocCheckAuthCommand, ProviderDocCreatePageCommand, ProviderDocGetPageCommand,
+    ProviderDocUpdatePageCommand, ProviderIssueCheckAuthCommand, ProviderIssueCommentCommand,
+    ProviderIssueCreateEpicCommand, ProviderIssueCreateIssueCommand, ProviderIssueGetIssueCommand,
+    ProviderIssueLinkCommand,
 };
 
 #[derive(Parser, Clone, Debug)]
@@ -99,6 +102,12 @@ enum Commands {
 
     #[command(about = "Show status of the workspace, catalog, or a specific epic")]
     Status(StatusArgs),
+
+    #[command(about = "List, inspect and select open feature workspaces (the resume CLI)")]
+    Tasks(TasksArgs),
+
+    #[command(about = "Attach a ticket to an unticketed workspace (moves it to TICKET-slug)")]
+    Attach(AttachArgs),
 
     #[command(about = "Create Pull Requests for the active workspace")]
     Pr {
@@ -163,7 +172,7 @@ struct DiscoverArgs {
 
 #[derive(clap::Args, Clone, Debug)]
 struct OpenArgs {
-    #[arg(help = "The Jira Epic key (e.g. ACME-123)")]
+    #[arg(help = "Workspace query: id (slug), ticket, folder name, or folder prefix")]
     epic_key: String,
 
     #[arg(long, help = "Specify the editor (cursor, vscode, zed, vim)")]
@@ -177,6 +186,37 @@ struct OpenArgs {
 struct StatusArgs {
     #[arg(help = "The Jira Epic key (e.g. ACME-123)")]
     epic_key: Option<String>,
+}
+
+#[derive(clap::Args, Clone, Debug)]
+struct TasksArgs {
+    #[arg(value_name = "TOKEN", help = "Shorthand for `ws tasks open <TOKEN>`")]
+    token: Option<String>,
+
+    #[command(subcommand)]
+    sub: Option<TasksSub>,
+}
+
+#[derive(Subcommand, Clone, Debug)]
+enum TasksSub {
+    #[command(about = "List open workspaces (and their tasks) as scan-able one-liners")]
+    List,
+    #[command(about = "Expand a single workspace/task row into full detail")]
+    Show { token: String },
+    #[command(about = "Print the path of a workspace/task so you can cd into it")]
+    Open { token: String },
+}
+
+#[derive(clap::Args, Clone, Debug)]
+struct AttachArgs {
+    #[arg(
+        value_name = "QUERY",
+        help = "Workspace id (slug), ticket, folder name, or folder prefix"
+    )]
+    q: String,
+
+    #[arg(long, help = "The issue key to attach (e.g. EPIC-123)")]
+    ticket: String,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -368,6 +408,8 @@ async fn main() -> miette::Result<()> {
     // Workspace commands
     registry.register(WorkspaceCreateCommand);
     registry.register(WorkspaceAddServiceCommand);
+    registry.register(WorkspaceAddTaskCommand);
+    registry.register(WorkspaceAttachCommand);
     registry.register(WorkspaceStatusCommand);
     registry.register(WorkspaceLockCommand);
     registry.register(WorkspaceGenerateEditorFilesCommand);
@@ -410,6 +452,12 @@ async fn run_cli(
         }
         Commands::Status(args) => {
             handle_status(workspace_root, ctx.clone(), args.epic_key).await?;
+        }
+        Commands::Tasks(args) => {
+            handle_tasks(workspace_root, args).await?;
+        }
+        Commands::Attach(args) => {
+            handle_attach(ctx.clone(), args).await?;
         }
         Commands::Pr { pr_sub } => {
             handle_pr(ctx.clone(), pr_sub).await?;
@@ -782,6 +830,23 @@ docs:
 "#;
         fs::write(&svc_template_path, svc_template)?;
     }
+
+    // Write the ws-managed root AGENTS.md: the compact harness contract pointing at the
+    // knowledge base (catalog/knowledge/), the catalog (services/products/teams), and
+    // where/how/when to start tasks. Runs on every init so a fresh workspace tells agents
+    // where things live.
+    let sync_ctx = CommandContext::new(
+        new_config.clone(),
+        root.to_path_buf(),
+        None,
+        None,
+        None,
+        HashMap::new(),
+    );
+    let sync_out = ProviderConfigSyncInstructionsCommand
+        .run(sync_ctx, ProviderConfigSyncInstructionsInput {})
+        .await?;
+    println!("\nWrote root AGENTS.md at {}", sync_out.path);
 
     let start_discovery =
         Confirm::new("Would you like to discover repositories to add to the catalog?")
@@ -1254,13 +1319,15 @@ async fn handle_add(
 
 async fn handle_open(
     ctx: CommandContext,
-    epic_key: String,
+    q: String,
     editor: Option<String>,
     service: Option<String>,
 ) -> Result<(), WorkspaceError> {
+    // Lookup is content-based: the folder name is a derived detail.
+    let entry = ws_workspace::resolve_workspace(&ctx.workspace_root, &q)?;
     let cmd = EditorOpenCommand;
     let input = ws_editors::EditorOpenInput {
-        epic_key,
+        epic_key: entry.folder,
         service_id: service,
         editor,
     };
@@ -1291,34 +1358,39 @@ async fn handle_status(
             println!("  Products: {} registered", products.len());
             println!("  Teams: {} registered\n", teams.len());
 
-            let workspaces_dir = root.join(&ctx.config.paths.workspaces_dir);
             println!("Local active workspaces:");
-            if workspaces_dir.exists() {
-                let mut found = false;
-                for entry in fs::read_dir(workspaces_dir)? {
-                    let entry = entry?;
-                    let path = entry.path();
-                    if path.is_dir() {
-                        if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
-                            println!("  - {}", name);
-                            found = true;
-                        }
-                    }
-                }
-                if !found {
-                    println!("  *(None found)*");
-                }
-            } else {
+            let ws_entries = ws_workspace::list_workspaces(root)?;
+            if ws_entries.is_empty() {
                 println!("  *(None found)*");
+            } else {
+                for e in &ws_entries {
+                    let ticket = e.ws.ticket.as_deref().unwrap_or("unticketed");
+                    println!(
+                        "  - {}  [{}]  {}",
+                        e.folder,
+                        ticket,
+                        truncate(&e.ws.description, 48)
+                    );
+                }
             }
         }
         Some(key) => {
             let cmd = WorkspaceStatusCommand;
             let output = cmd
-                .run(ctx, ws_workspace::WorkspaceGetInput { epic_key: key })
+                .run(ctx, ws_workspace::WorkspaceQueryInput { q: key })
                 .await?;
-            println!("Workspace status for epic {}:", output.epic_key);
-            println!("  Base branch: {}", output.base_branch);
+            println!("Workspace {} ({})", output.id, output.folder);
+            println!(
+                "  ticket:      {}",
+                output.ticket.as_deref().unwrap_or("unticketed")
+            );
+            if !output.title.is_empty() {
+                println!("  title:       {}", output.title);
+            }
+            if !output.description.is_empty() {
+                println!("  description: {}", output.description);
+            }
+            println!("  Base branch:     {}", output.base_branch);
             println!("  Created branches: {}", output.create_branches);
             println!("  Preferred editor: {}", output.editor);
             println!("\nRepository worktree details:");
@@ -1327,6 +1399,13 @@ async fn handle_status(
                 println!("    branch:  {}", status.branch);
                 println!("    current: {}", status.current_commit);
                 println!(
+                    "    unpushed: {}",
+                    status
+                        .unpushed_count
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "n/a".to_string())
+                );
+                println!(
                     "    changes: {}",
                     if status.has_changes {
                         "Yes (uncommitted files)"
@@ -1334,6 +1413,20 @@ async fn handle_status(
                         "No"
                     }
                 );
+            }
+            if !output.tasks.is_empty() {
+                println!("\nTask worktrees:");
+                for task in output.tasks {
+                    println!("  - task: {} ({}) on {}", task.key, task.slug, task.branch);
+                    for (service_id, status) in task.repo_statuses {
+                        println!(
+                            "      - service: {} | branch: {} | changes: {}",
+                            service_id,
+                            status.branch,
+                            if status.has_changes { "yes" } else { "no" }
+                        );
+                    }
+                }
             }
         }
     }
@@ -1351,10 +1444,11 @@ async fn handle_pr(ctx: CommandContext, pr_sub: PrSub) -> Result<(), WorkspaceEr
             let services = if let Some(s) = service {
                 vec![s]
             } else if all {
+                let entry = ws_workspace::resolve_workspace(&ctx.workspace_root, &epic_key)?;
                 let ws_path = ctx
                     .workspace_root
                     .join("workspaces")
-                    .join(&epic_key)
+                    .join(&entry.folder)
                     .join("workspace.yaml");
                 if !ws_path.exists() {
                     return Err(WorkspaceError::NotFound(format!(
@@ -1393,6 +1487,461 @@ async fn handle_pr(ctx: CommandContext, pr_sub: PrSub) -> Result<(), WorkspaceEr
             }
         }
     }
+    Ok(())
+}
+
+// ==========================================
+// ws tasks — list / show / open (the resume CLI)
+// ==========================================
+
+#[derive(Clone)]
+struct RowBranch {
+    service: String,
+    branch: String,
+    dirty: bool,
+}
+
+#[derive(Clone)]
+struct TaskRow {
+    folder: String,
+    id: String,
+    ticket: Option<String>,
+    description: String,
+    /// `Some` → this row is a task slice; `None` → the workspace itself.
+    task_slug: Option<String>,
+    task_key: Option<String>,
+    repos: Vec<String>,
+    branches: Vec<RowBranch>,
+    age: Option<std::time::SystemTime>,
+}
+
+fn build_task_rows(root: &Path) -> Result<Vec<TaskRow>, WorkspaceError> {
+    let entries = ws_workspace::list_workspaces(root)?;
+    let mut rows = Vec::new();
+
+    for e in &entries {
+        let lock = ws_workspace::load_workspace_lock_or_default(root, &e.folder, &e.ws);
+        let repo_statuses =
+            ws_workspace::collect_repo_statuses(root, &e.folder, &e.ws, &lock.repos);
+        let task_statuses =
+            ws_workspace::collect_task_statuses(root, &e.folder, &e.ws, &lock.tasks);
+        let age = workspace_age(root, &e.folder);
+
+        let branches: Vec<RowBranch> =
+            e.ws.services
+                .iter()
+                .map(|svc| {
+                    let rs = repo_statuses.get(svc);
+                    RowBranch {
+                        service: svc.clone(),
+                        branch: rs
+                            .map(|r| r.branch.clone())
+                            .unwrap_or_else(|| "?".to_string()),
+                        dirty: rs.map(|r| r.has_changes).unwrap_or(false),
+                    }
+                })
+                .collect();
+
+        rows.push(TaskRow {
+            folder: e.folder.clone(),
+            id: e.ws.id.clone(),
+            ticket: e.ws.ticket.clone(),
+            description: e.ws.description.clone(),
+            task_slug: None,
+            task_key: None,
+            repos: e.ws.services.clone(),
+            branches,
+            age,
+        });
+
+        for ts in task_statuses {
+            let branches: Vec<RowBranch> = ts
+                .repo_statuses
+                .iter()
+                .map(|(svc, rs)| RowBranch {
+                    service: svc.clone(),
+                    branch: rs.branch.clone(),
+                    dirty: rs.has_changes,
+                })
+                .collect();
+            let mut repos: Vec<String> = ts.repo_statuses.keys().cloned().collect();
+            repos.sort();
+            rows.push(TaskRow {
+                folder: e.folder.clone(),
+                id: e.ws.id.clone(),
+                ticket: e.ws.ticket.clone(),
+                description: e.ws.description.clone(),
+                task_slug: Some(ts.slug.clone()),
+                task_key: Some(ts.key.clone()),
+                repos,
+                branches,
+                age,
+            });
+        }
+    }
+    Ok(rows)
+}
+
+fn workspace_age(root: &Path, folder: &str) -> Option<std::time::SystemTime> {
+    let p = ws_workspace::get_workspace_dir(root, folder).join("workspace.yaml");
+    fs::metadata(p).and_then(|m| m.modified()).ok()
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let mut out: String = s.chars().take(max.saturating_sub(3)).collect();
+        out.push_str("...");
+        out
+    }
+}
+
+fn fmt_age(modified: std::time::SystemTime) -> String {
+    let Ok(now) = std::time::SystemTime::now().duration_since(modified) else {
+        return "now".to_string();
+    };
+    let secs = now.as_secs();
+    if secs < 60 {
+        format!("{}s", secs)
+    } else if secs < 3600 {
+        format!("{}m", secs / 60)
+    } else if secs < 86400 {
+        format!("{}h", secs / 3600)
+    } else {
+        format!("{}d", secs / 86400)
+    }
+}
+
+fn row_line(r: &TaskRow, index: Option<usize>) -> String {
+    let token = match (&r.task_slug, &r.task_key) {
+        (Some(s), Some(k)) => format!("{}/{} (task {})", r.id, s, k),
+        _ => r.id.clone(),
+    };
+    let ticket = r.ticket.as_deref().unwrap_or("unticketed");
+    let repos = r
+        .branches
+        .iter()
+        .map(|rb| {
+            format!(
+                "{}:{}{}",
+                rb.service,
+                rb.branch,
+                if rb.dirty { "*" } else { "" }
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let desc = truncate(&r.description, 44);
+    let age = r.age.map(fmt_age).unwrap_or_else(|| "?".to_string());
+    match index {
+        Some(i) => format!(
+            "[{}] {} | {} | {} | {} | {}",
+            i, token, ticket, repos, desc, age
+        ),
+        None => format!("{} | {} | {} | {} | {}", token, ticket, repos, desc, age),
+    }
+}
+
+fn rows_empty_message(root: &Path) {
+    println!(
+        "No open feature workspaces found under {}.",
+        root.join("workspaces").display()
+    );
+    println!(
+        "Start one with: ws ai run workspace.create --input '{{\"title\": \"...\", \"description\": \"...\", \"services\": [...]}}'"
+    );
+}
+
+fn print_rows(rows: &[TaskRow], root: &Path) {
+    if rows.is_empty() {
+        rows_empty_message(root);
+        return;
+    }
+    for (i, r) in rows.iter().enumerate() {
+        println!("{}", row_line(r, Some(i + 1)));
+    }
+}
+
+fn desc_matches(desc: &str, token_lc: &str) -> bool {
+    let t = token_lc.trim();
+    if t.is_empty() {
+        return false;
+    }
+    // Word or substring: the token appears inside any alphanumeric word.
+    desc.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .any(|w| w.contains(t))
+}
+
+/// Semantic token matching (spec 4.3): index, id (slug), ticket, folder name,
+/// folder prefix, task slug/key/full, then description word match.
+///
+/// This is the CLI-facing *superset* of the engine's `resolve_workspace`
+/// (which only does identity + `{q}-` prefix over folders). It additionally
+/// understands list indices and task rows and is the primary resume surface.
+fn match_rows(rows: &[TaskRow], token: &str) -> Result<Vec<usize>, WorkspaceError> {
+    let token = token.trim();
+    if token.is_empty() {
+        return Err(WorkspaceError::Validation(
+            "Empty ws tasks token.".to_string(),
+        ));
+    }
+
+    // 0. 1-based index into the list (the `[N]` prefix).
+    if let Ok(n) = token.parse::<usize>() {
+        if n >= 1 && n <= rows.len() {
+            return Ok(vec![n - 1]);
+        }
+    }
+
+    let ws_rows: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.task_slug.is_none())
+        .map(|(i, _)| i)
+        .collect();
+
+    // 1. exact id (slug)
+    let bucket: Vec<usize> = ws_rows
+        .iter()
+        .copied()
+        .filter(|&i| rows[i].id == token)
+        .collect();
+    if !bucket.is_empty() {
+        return Ok(bucket);
+    }
+    // 2. exact ticket
+    let bucket: Vec<usize> = ws_rows
+        .iter()
+        .copied()
+        .filter(|&i| rows[i].ticket.as_deref() == Some(token))
+        .collect();
+    if !bucket.is_empty() {
+        return Ok(bucket);
+    }
+    // 3. exact folder name
+    let bucket: Vec<usize> = ws_rows
+        .iter()
+        .copied()
+        .filter(|&i| rows[i].folder == token)
+        .collect();
+    if !bucket.is_empty() {
+        return Ok(bucket);
+    }
+    // 4. folder prefix `{token}-`
+    let bucket: Vec<usize> = ws_rows
+        .iter()
+        .copied()
+        .filter(|&i| rows[i].folder.starts_with(&format!("{}-", token)))
+        .collect();
+    if !bucket.is_empty() {
+        return Ok(bucket);
+    }
+    // 5. task rows: `id/slug`, `slug`, or `key`
+    let bucket: Vec<usize> = rows
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| {
+            r.task_slug.as_deref().is_some_and(|s| {
+                let full = format!("{}/{}", r.id, s);
+                s == token || r.task_key.as_deref() == Some(token) || full == token
+            })
+        })
+        .map(|(i, _)| i)
+        .collect();
+    if !bucket.is_empty() {
+        return Ok(bucket);
+    }
+    // 6. description word match (workspace rows only)
+    let token_lc = token.to_lowercase();
+    let bucket: Vec<usize> = ws_rows
+        .iter()
+        .copied()
+        .filter(|&i| desc_matches(&rows[i].description, &token_lc))
+        .collect();
+    if !bucket.is_empty() {
+        return Ok(bucket);
+    }
+
+    Err(WorkspaceError::NotFound(format!(
+        "Nothing matches '{}' — list open tasks with `ws tasks`.",
+        token
+    )))
+}
+
+fn pick_row(rows: &[TaskRow], token: &str) -> Result<usize, WorkspaceError> {
+    let matches = match_rows(rows, token)?;
+    if matches.len() == 1 {
+        return Ok(matches[0]);
+    }
+    eprintln!("Token '{}' matched {} candidates:", token, matches.len());
+    for &i in &matches {
+        eprintln!("  {}", row_line(&rows[i], Some(i + 1)));
+    }
+    if std::io::stdin().is_terminal() {
+        let options: Vec<String> = matches
+            .iter()
+            .map(|&i| row_line(&rows[i], Some(i + 1)))
+            .collect();
+        if let Ok(sel) = Select::new("Pick one workspace:", options).prompt() {
+            for &i in &matches {
+                if row_line(&rows[i], Some(i + 1)) == sel {
+                    return Ok(i);
+                }
+            }
+        }
+    }
+    Err(WorkspaceError::Validation(format!(
+        "Token '{}' is ambiguous — re-run with a full slug, ticket, or the index above.",
+        token
+    )))
+}
+
+fn open_workspace_path(root: &Path, row: &TaskRow) -> String {
+    let ws_dir = ws_workspace::get_workspace_dir(root, &row.folder);
+    match &row.task_slug {
+        Some(slug) => {
+            // Q9: a task token targets tasks/<slug>/<repo>.
+            let first = row.repos.first().cloned().unwrap_or_default();
+            ws_dir
+                .join("tasks")
+                .join(slug)
+                .join(first)
+                .to_string_lossy()
+                .into_owned()
+        }
+        None => match row.repos.first() {
+            // Q9: `open` targets the main repos/<repo>; fall back to the folder when empty.
+            Some(first) => ws_dir
+                .join("repos")
+                .join(first)
+                .to_string_lossy()
+                .into_owned(),
+            None => ws_dir.to_string_lossy().into_owned(),
+        },
+    }
+}
+
+fn shorten_sha(s: &str) -> String {
+    if s.chars().count() > 8 {
+        s.chars().take(8).collect()
+    } else {
+        s.to_string()
+    }
+}
+
+fn show_workspace_detail(root: &Path, row: &TaskRow) -> Result<(), WorkspaceError> {
+    let e = ws_workspace::resolve_workspace(root, &row.folder)?;
+    let lock = ws_workspace::load_workspace_lock_or_default(root, &e.folder, &e.ws);
+    let repo_statuses = ws_workspace::collect_repo_statuses(root, &e.folder, &e.ws, &lock.repos);
+    let task_statuses = ws_workspace::collect_task_statuses(root, &e.folder, &e.ws, &lock.tasks);
+    let path = ws_workspace::get_workspace_dir(root, &e.folder);
+    let age = row.age.map(fmt_age).unwrap_or_else(|| "?".to_string());
+
+    println!("Workspace: {}", e.ws.id);
+    if !e.ws.title.is_empty() {
+        println!("  title:        {}", e.ws.title);
+    }
+    println!(
+        "  ticket:       {}",
+        e.ws.ticket.as_deref().unwrap_or("unticketed")
+    );
+    println!("  folder:       {}", e.folder);
+    println!("  path:         {}", path.display());
+    if !e.ws.description.is_empty() {
+        println!("  description:  {}", e.ws.description);
+    }
+    println!(
+        "  created:      {}",
+        e.ws.created_at.as_deref().unwrap_or("n/a")
+    );
+    println!("  last changed: {}", age);
+    println!("  base_branch:  {}", e.ws.base_branch);
+    println!("  services:");
+    for svc in &e.ws.services {
+        let rs = repo_statuses.get(svc);
+        let br = rs
+            .map(|r| r.branch.clone())
+            .unwrap_or_else(|| "?".to_string());
+        let dirty = rs.map(|r| r.has_changes).unwrap_or(false);
+        let unpushed = rs
+            .and_then(|r| r.unpushed_count)
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| "n/a".to_string());
+        let baseline = rs
+            .map(|r| shorten_sha(&r.baseline_commit))
+            .unwrap_or_else(|| "unknown".to_string());
+        println!(
+            "    {}: path {}/repos/{} | branch {} | baseline {} | dirty {} | unpushed {}",
+            svc,
+            path.display(),
+            svc,
+            br,
+            baseline,
+            if dirty { "yes" } else { "no" },
+            unpushed
+        );
+    }
+    if !task_statuses.is_empty() {
+        println!("  tasks:");
+        for t in &task_statuses {
+            println!("    {} ({}): branch {}", t.key, t.slug, t.branch);
+            for (svc, rs) in &t.repo_statuses {
+                println!(
+                    "      {}: branch {} {}",
+                    svc,
+                    rs.branch,
+                    if rs.has_changes { "(dirty)" } else { "" }
+                );
+            }
+        }
+    }
+    if let Some(slug) = &row.task_slug {
+        println!("  selected task: {}", slug);
+    }
+    Ok(())
+}
+
+async fn handle_tasks(root: &Path, args: TasksArgs) -> Result<(), WorkspaceError> {
+    let rows = build_task_rows(root)?;
+    match &args.sub {
+        None => match &args.token {
+            None => print_rows(&rows, root),
+            Some(token) => {
+                let idx = pick_row(&rows, token)?;
+                println!("{}", open_workspace_path(root, &rows[idx]));
+            }
+        },
+        Some(TasksSub::List) => print_rows(&rows, root),
+        Some(TasksSub::Show { token }) => {
+            let idx = pick_row(&rows, token)?;
+            show_workspace_detail(root, &rows[idx])?;
+        }
+        Some(TasksSub::Open { token }) => {
+            let idx = pick_row(&rows, token)?;
+            println!("{}", open_workspace_path(root, &rows[idx]));
+        }
+    }
+    Ok(())
+}
+
+async fn handle_attach(ctx: CommandContext, args: AttachArgs) -> Result<(), WorkspaceError> {
+    let cmd = ws_workspace::WorkspaceAttachCommand;
+    let output = cmd
+        .run(
+            ctx,
+            ws_workspace::WorkspaceAttachInput {
+                q: args.q,
+                ticket: args.ticket,
+            },
+        )
+        .await?;
+    println!(
+        "Attached {} to {} (folder {}).",
+        output.id, output.ticket, output.folder
+    );
+    println!("{}", output.path);
     Ok(())
 }
 

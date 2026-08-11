@@ -4,6 +4,7 @@ pub mod editors;
 pub mod error;
 pub mod models;
 pub mod providers;
+pub mod workspaces;
 
 // Re-export common traits and structs
 pub use command::{AiCommand, CommandRegistry, ErasedAiCommand};

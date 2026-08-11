@@ -76,13 +76,23 @@ ws add repo example-org/notification
 ws add product acme
 ws add team platform
 
-# Open epic workspace or specific service in default editor
-ws open ACME-123
-ws open ACME-123 --service notification
+# Open a feature workspace or specific service in default editor
+# (resolved by workspace id, ticket, folder name, or folder prefix)
+ws open realtime-chat
+ws open ACME-123-realtime-chat --service notification
 
 # Show overall workspace and repository status
 ws status
-ws status ACME-123
+ws status realtime-chat
+
+# Resume work: list / inspect / select open feature workspaces
+ws tasks                    # list open workspaces (and their tasks) as one-liners
+ws tasks show realtime      # expand a row into full detail
+ws tasks open realtime      # print the worktree path — you cd into it
+ws tasks realtime           # shorthand for `tasks open`
+
+# Attach a ticket to an unticketed workspace (moves it to TICKET-slug)
+ws attach realtime-chat --ticket ACME-123
 
 # Push branches and create pull requests for modified repositories
 ws pr create ACME-123 --all
@@ -115,7 +125,7 @@ ws ai schema command workspace.create output
 ws ai run workspace.create --input ./workspace-create.json
 ```
 
-All 21 AI commands are documented in [command-api.md](file:///Users/nestyko/Documents/playground/ws/docs/command-api.md).
+All 41 AI commands are documented in [command-api.md](file:///Users/nestyko/Documents/playground/ws/docs/command-api.md).
 
 ---
 

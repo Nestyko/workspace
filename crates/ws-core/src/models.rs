@@ -60,22 +60,36 @@ pub struct CreateWorktreeInput {
     pub owner: String,
     pub name: String,
     pub url: String,
-    pub epic_key: String,
+    /// Workspace folder name (derived from id/ticket), i.e. `workspaces/<folder>/`.
+    pub folder: String,
     pub service_id: String,
     pub base_branch: String,
     pub branch: String,
+    /// Relative path under `workspaces/<folder>/` for the worktree.
+    /// `None` → `repos/<service_id>`. Task worktrees pass `tasks/<task-slug>/<service_id>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subdir: Option<String>,
+}
+
+/// Relocate an existing worktree (e.g. rename-on-attach). Paths are absolute.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MoveWorktreeInput {
+    pub owner: String,
+    pub name: String,
+    pub from: String,
+    pub to: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PushBranchInput {
-    pub epic_key: String,
+    pub folder: String,
     pub service_id: String,
     pub branch: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CreatePullRequestInput {
-    pub epic_key: String,
+    pub folder: String,
     pub service_id: String,
     pub branch: String,
     pub title: String,
@@ -372,17 +386,48 @@ impl Default for LocalConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Workspace {
+    /// Stable identity — the feature slug (never the folder name; the folder is derived).
     pub id: String,
+    /// Issue key (e.g. `EPIC-123`), if a ticket exists. `None` → "unticketed".
+    #[serde(default)]
+    pub ticket: Option<String>,
+    /// Feature title (from the prompt/PRD).
+    #[serde(default)]
+    pub title: String,
+    /// Free-text description from the prompt/PRD; powers `ws tasks` search.
+    #[serde(default)]
+    pub description: String,
+    /// RFC3339 creation timestamp. Absent in hand-authored/pre-existing workspaces.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
     pub services: Vec<String>,
     pub base_branch: String,
     pub create_branches: bool,
     pub editor: String,
+    #[serde(default)]
+    pub tasks: Vec<WorkspaceTask>,
+}
+
+/// A per-task slice of a feature workspace (slice 4): its own set of worktrees.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct WorkspaceTask {
+    /// Issue/task key, if any (e.g. `TASK-1`).
+    pub key: String,
+    /// Task slug, used for folder and branch names
+    /// (`tasks/<slug>` folder, branch `<ws.id>-<slug>`).
+    pub slug: String,
+    /// Services this task has worktrees for.
+    #[serde(default)]
+    pub repos: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct WorkspaceLock {
     pub id: String,
     pub repos: HashMap<String, LockedRepo>,
+    /// Baseline entries per task key → service id → locked repo (worktree baselines).
+    #[serde(default)]
+    pub tasks: HashMap<String, HashMap<String, LockedRepo>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

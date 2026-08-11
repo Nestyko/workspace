@@ -13,6 +13,7 @@ miette = { workspace = true }
 async-trait = { workspace = true }
 duct = { workspace = true }
 tracing = { workspace = true }
+chrono = { workspace = true }
 ws-core = { workspace = true }
 ws-providers = { workspace = true }
 ws-catalog = { workspace = true }
