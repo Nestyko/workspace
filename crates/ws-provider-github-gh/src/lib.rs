@@ -7,8 +7,8 @@ use tracing::{info, warn};
 use ws_core::error::WorkspaceError;
 use ws_core::models::{
     AuthStatus, CreatePullRequestInput, CreateWorktreeInput, EnsureRepoCacheInput,
-    ListRecentReposInput, PullRequest, PushBranchInput, RepoCache, RepoDetails, RepoRef,
-    RepoSummary, Worktree,
+    ListRecentReposInput, MoveWorktreeInput, PullRequest, PushBranchInput, RepoCache, RepoDetails,
+    RepoRef, RepoSummary, Worktree,
 };
 use ws_core::providers::CodeProvider;
 
@@ -256,10 +256,13 @@ impl CodeProvider for GitHubGhProvider {
             )));
         }
 
-        let worktree_dir = Path::new("workspaces")
-            .join(&input.epic_key)
-            .join("repos")
-            .join(&input.service_id);
+        let worktree_dir = match &input.subdir {
+            Some(subdir) => Path::new("workspaces").join(&input.folder).join(subdir),
+            None => Path::new("workspaces")
+                .join(&input.folder)
+                .join("repos")
+                .join(&input.service_id),
+        };
 
         if worktree_dir.exists() {
             warn!(
@@ -349,9 +352,44 @@ impl CodeProvider for GitHubGhProvider {
         })
     }
 
+    async fn move_worktree(&self, input: MoveWorktreeInput) -> Result<(), WorkspaceError> {
+        let cache_path = Path::new(".cache")
+            .join("repos")
+            .join(&input.owner)
+            .join(format!("{}.git", input.name));
+
+        if !cache_path.exists() {
+            return Err(WorkspaceError::Git(format!(
+                "Repo cache does not exist at {}",
+                cache_path.display()
+            )));
+        }
+        if !Path::new(&input.from).exists() {
+            warn!(
+                "Worktree {} already moved or missing; skipping.",
+                input.from
+            );
+            return Ok(());
+        }
+
+        info!("Moving worktree {} -> {}", input.from, input.to);
+        self.run_git(
+            &[
+                "--git-dir",
+                &cache_path.to_string_lossy(),
+                "worktree",
+                "move",
+                &input.from,
+                &input.to,
+            ],
+            None,
+        )?;
+        Ok(())
+    }
+
     async fn push_branch(&self, input: PushBranchInput) -> Result<(), WorkspaceError> {
         let worktree_dir = Path::new("workspaces")
-            .join(&input.epic_key)
+            .join(&input.folder)
             .join("repos")
             .join(&input.service_id);
 
@@ -365,7 +403,7 @@ impl CodeProvider for GitHubGhProvider {
 
         info!(
             "Pushing branch {} for service {} in workspace {}",
-            input.branch, input.service_id, input.epic_key
+            input.branch, input.service_id, input.folder
         );
 
         // Run git push origin <branch> inside the worktree dir
@@ -383,7 +421,7 @@ impl CodeProvider for GitHubGhProvider {
         input: CreatePullRequestInput,
     ) -> Result<PullRequest, WorkspaceError> {
         let worktree_dir = Path::new("workspaces")
-            .join(&input.epic_key)
+            .join(&input.folder)
             .join("repos")
             .join(&input.service_id);
 

@@ -676,11 +676,13 @@ impl AiCommand for PrCreateCommand {
             WorkspaceError::Config("No code provider configured for PR creation".to_string())
         })?;
 
-        // Load workspace directly to avoid cyclic dependencies
+        // Load workspace by content (folder is derived from id/ticket).
+        let entry =
+            ws_core::workspaces::resolve_workspace(&ctx.workspace_root, &input.workspace_id)?;
         let ws_path = ctx
             .workspace_root
             .join("workspaces")
-            .join(&input.workspace_id)
+            .join(&entry.folder)
             .join("workspace.yaml");
 
         if !ws_path.exists() {
@@ -704,16 +706,13 @@ impl AiCommand for PrCreateCommand {
                 )));
             }
 
-            let branch_name = if ws.create_branches {
-                input.workspace_id.clone()
-            } else {
-                input.workspace_id.clone()
-            };
+            // Branch naming: <ticket> if assigned, else the slug (spec 4.1).
+            let branch_name = ws.ticket.clone().unwrap_or_else(|| ws.id.clone());
 
             // 1. Push branch
             code_provider
                 .push_branch(PushBranchInput {
-                    epic_key: input.workspace_id.clone(),
+                    folder: entry.folder.clone(),
                     service_id: service_id.clone(),
                     branch: branch_name.clone(),
                 })
@@ -722,7 +721,7 @@ impl AiCommand for PrCreateCommand {
             // 2. Create PR
             let pr = code_provider
                 .create_pull_request(CreatePullRequestInput {
-                    epic_key: input.workspace_id.clone(),
+                    folder: entry.folder.clone(),
                     service_id: service_id.clone(),
                     branch: branch_name.clone(),
                     title: input.title.clone(),

@@ -1,7 +1,7 @@
 use crate::error::WorkspaceError;
 use crate::models::{
-    AuthStatus, Comment, CreateEpicInput, CreateIssueInput, CreatePullRequestInput,
-    CreateWorktreeInput, EnsureRepoCacheInput, Issue, LinkIssuesInput, ListRecentReposInput,
+    AuthStatus, CreateEpicInput, CreateIssueInput, CreatePullRequestInput, CreateWorktreeInput,
+    EnsureRepoCacheInput, Issue, LinkIssuesInput, ListRecentReposInput, MoveWorktreeInput,
     PullRequest, PushBranchInput, RepoCache, RepoDetails, RepoRef, RepoSummary, UpdateIssueInput,
     Worktree,
 };
@@ -50,6 +50,10 @@ pub trait CodeProvider: Send + Sync {
 
     async fn create_worktree(&self, input: CreateWorktreeInput)
         -> Result<Worktree, WorkspaceError>;
+
+    /// Move an existing worktree to a new path, updating git's worktree metadata.
+    /// Used by rename-on-attach, where the workspace folder is rewritten.
+    async fn move_worktree(&self, input: MoveWorktreeInput) -> Result<(), WorkspaceError>;
 
     async fn push_branch(&self, input: PushBranchInput) -> Result<(), WorkspaceError>;
 

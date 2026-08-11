@@ -2328,6 +2328,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "tempfile",
  "thiserror",
  "tokio",
  "tracing",
@@ -2458,6 +2459,7 @@ name = "ws-workspace"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "duct",
  "miette",
  "schemars",

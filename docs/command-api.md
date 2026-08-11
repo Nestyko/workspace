@@ -3820,7 +3820,7 @@ This document defines the list of typed JSON commands supported by the AI worksp
 
 ## `workspace.add_service`
 
-**Description:** Add a service to an active implementation workspace.
+**Description:** Add a service to an active feature workspace (resolved by id/ticket/prefix).
 
 ### Input Schema
 
@@ -3828,7 +3828,7 @@ This document defines the list of typed JSON commands supported by the AI worksp
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
-    "epic_key": {
+    "q": {
       "type": "string"
     },
     "service_id": {
@@ -3836,7 +3836,7 @@ This document defines the list of typed JSON commands supported by the AI worksp
     }
   },
   "required": [
-    "epic_key",
+    "q",
     "service_id"
   ],
   "title": "WorkspaceAddServiceInput",
@@ -3868,9 +3868,212 @@ This document defines the list of typed JSON commands supported by the AI worksp
 
 ---
 
+## `workspace.add_task`
+
+**Description:** Create per-task worktrees (tasks/<slug>/<repo>) for a feature workspace.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "key": {
+      "description": "Task key, e.g. `TASK-1`.",
+      "type": "string"
+    },
+    "q": {
+      "type": "string"
+    },
+    "services": {
+      "description": "Services to include; default = all workspace services.",
+      "items": {
+        "type": "string"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "slug": {
+      "description": "Task slug for folder/branch names (`tasks/<slug>`, branch `<ws.id>-<slug>`). Defaults to `kebab(key)`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "key",
+    "q"
+  ],
+  "title": "WorkspaceAddTaskInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "WorkspaceTask": {
+      "description": "A per-task slice of a feature workspace (slice 4): its own set of worktrees.",
+      "properties": {
+        "key": {
+          "description": "Issue/task key, if any (e.g. `TASK-1`).",
+          "type": "string"
+        },
+        "repos": {
+          "default": [],
+          "description": "Services this task has worktrees for.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "slug": {
+          "description": "Task slug, used for folder and branch names (`tasks/<slug>` folder, branch `<ws.id>-<slug>`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "slug"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "base_branch": {
+      "type": "string"
+    },
+    "create_branches": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "description": "RFC3339 creation timestamp. Absent in hand-authored/pre-existing workspaces.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "description": {
+      "default": "",
+      "description": "Free-text description from the prompt/PRD; powers `ws tasks` search.",
+      "type": "string"
+    },
+    "editor": {
+      "type": "string"
+    },
+    "id": {
+      "description": "Stable identity — the feature slug (never the folder name; the folder is derived).",
+      "type": "string"
+    },
+    "services": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "tasks": {
+      "default": [],
+      "items": {
+        "$ref": "#/definitions/WorkspaceTask"
+      },
+      "type": "array"
+    },
+    "ticket": {
+      "default": null,
+      "description": "Issue key (e.g. `EPIC-123`), if a ticket exists. `None` → \"unticketed\".",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "default": "",
+      "description": "Feature title (from the prompt/PRD).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "base_branch",
+    "create_branches",
+    "editor",
+    "id",
+    "services"
+  ],
+  "title": "Workspace",
+  "type": "object"
+}
+```
+
+---
+
+## `workspace.attach`
+
+**Description:** Attach a ticket to an unticketed workspace and move it to TICKET-slug.
+
+### Input Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "q": {
+      "type": "string"
+    },
+    "ticket": {
+      "description": "The issue key to attach, e.g. `EPIC-123`.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "q",
+    "ticket"
+  ],
+  "title": "WorkspaceAttachInput",
+  "type": "object"
+}
+```
+
+### Output Schema
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "folder": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "ticket": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "folder",
+    "id",
+    "path",
+    "ticket"
+  ],
+  "title": "WorkspaceAttachOutput",
+  "type": "object"
+}
+```
+
+---
+
 ## `workspace.create`
 
-**Description:** Create a per-epic multi-repo workspace.
+**Description:** Create a per-feature multi-repo workspace (slug identity; ticket optional).
 
 ### Input Schema
 
@@ -3890,25 +4093,42 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "null"
       ]
     },
+    "description": {
+      "type": "string"
+    },
     "editor": {
       "type": [
         "string",
         "null"
       ]
     },
-    "epic_key": {
-      "type": "string"
+    "id": {
+      "description": "Explicit slug override; defaults to `kebab(title)`.",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "services": {
       "items": {
         "type": "string"
       },
       "type": "array"
+    },
+    "ticket": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "type": "string"
     }
   },
   "required": [
-    "epic_key",
-    "services"
+    "description",
+    "services",
+    "title"
   ],
   "title": "WorkspaceCreateInput",
   "type": "object"
@@ -3920,6 +4140,34 @@ This document defines the list of typed JSON commands supported by the AI worksp
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "WorkspaceTask": {
+      "description": "A per-task slice of a feature workspace (slice 4): its own set of worktrees.",
+      "properties": {
+        "key": {
+          "description": "Issue/task key, if any (e.g. `TASK-1`).",
+          "type": "string"
+        },
+        "repos": {
+          "default": [],
+          "description": "Services this task has worktrees for.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "slug": {
+          "description": "Task slug, used for folder and branch names (`tasks/<slug>` folder, branch `<ws.id>-<slug>`).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "slug"
+      ],
+      "type": "object"
+    }
+  },
   "properties": {
     "base_branch": {
       "type": "string"
@@ -3927,10 +4175,23 @@ This document defines the list of typed JSON commands supported by the AI worksp
     "create_branches": {
       "type": "boolean"
     },
+    "created_at": {
+      "description": "RFC3339 creation timestamp. Absent in hand-authored/pre-existing workspaces.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "description": {
+      "default": "",
+      "description": "Free-text description from the prompt/PRD; powers `ws tasks` search.",
+      "type": "string"
+    },
     "editor": {
       "type": "string"
     },
     "id": {
+      "description": "Stable identity — the feature slug (never the folder name; the folder is derived).",
       "type": "string"
     },
     "services": {
@@ -3938,6 +4199,26 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "type": "string"
       },
       "type": "array"
+    },
+    "tasks": {
+      "default": [],
+      "items": {
+        "$ref": "#/definitions/WorkspaceTask"
+      },
+      "type": "array"
+    },
+    "ticket": {
+      "default": null,
+      "description": "Issue key (e.g. `EPIC-123`), if a ticket exists. `None` → \"unticketed\".",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "default": "",
+      "description": "Feature title (from the prompt/PRD).",
+      "type": "string"
     }
   },
   "required": [
@@ -3956,7 +4237,7 @@ This document defines the list of typed JSON commands supported by the AI worksp
 
 ## `workspace.generate_editor_files`
 
-**Description:** Regenerate editor-specific workspace configurations.
+**Description:** Regenerate editor-specific workspace configurations (resolved by id/ticket/prefix).
 
 ### Input Schema
 
@@ -3964,14 +4245,15 @@ This document defines the list of typed JSON commands supported by the AI worksp
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
-    "epic_key": {
+    "q": {
+      "description": "Matches workspace `id` (slug), `ticket`, folder name, or folder prefix.",
       "type": "string"
     }
   },
   "required": [
-    "epic_key"
+    "q"
   ],
-  "title": "WorkspaceGetInput",
+  "title": "WorkspaceQueryInput",
   "type": "object"
 }
 ```
@@ -4002,7 +4284,7 @@ This document defines the list of typed JSON commands supported by the AI worksp
 
 ## `workspace.lock`
 
-**Description:** Retrieve workspace lockfile details.
+**Description:** Retrieve workspace lockfile details (resolved by id/ticket/prefix).
 
 ### Input Schema
 
@@ -4010,14 +4292,15 @@ This document defines the list of typed JSON commands supported by the AI worksp
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
-    "epic_key": {
+    "q": {
+      "description": "Matches workspace `id` (slug), `ticket`, folder name, or folder prefix.",
       "type": "string"
     }
   },
   "required": [
-    "epic_key"
+    "q"
   ],
-  "title": "WorkspaceGetInput",
+  "title": "WorkspaceQueryInput",
   "type": "object"
 }
 ```
@@ -4065,6 +4348,17 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "$ref": "#/definitions/LockedRepo"
       },
       "type": "object"
+    },
+    "tasks": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "$ref": "#/definitions/LockedRepo"
+        },
+        "type": "object"
+      },
+      "default": {},
+      "description": "Baseline entries per task key → service id → locked repo (worktree baselines).",
+      "type": "object"
     }
   },
   "required": [
@@ -4080,7 +4374,7 @@ This document defines the list of typed JSON commands supported by the AI worksp
 
 ## `workspace.status`
 
-**Description:** Show status of active workspace and repositories.
+**Description:** Show status of a workspace (resolved by id/ticket/prefix) and repositories.
 
 ### Input Schema
 
@@ -4088,14 +4382,15 @@ This document defines the list of typed JSON commands supported by the AI worksp
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
-    "epic_key": {
+    "q": {
+      "description": "Matches workspace `id` (slug), `ticket`, folder name, or folder prefix.",
       "type": "string"
     }
   },
   "required": [
-    "epic_key"
+    "q"
   ],
-  "title": "WorkspaceGetInput",
+  "title": "WorkspaceQueryInput",
   "type": "object"
 }
 ```
@@ -4122,6 +4417,15 @@ This document defines the list of typed JSON commands supported by the AI worksp
         },
         "service_id": {
           "type": "string"
+        },
+        "unpushed_count": {
+          "description": "Commits ahead of the upstream tracking branch (`None` = no upstream configured).",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
@@ -4130,6 +4434,32 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "current_commit",
         "has_changes",
         "service_id"
+      ],
+      "type": "object"
+    },
+    "TaskStatusOutput": {
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "repo_statuses": {
+          "additionalProperties": {
+            "$ref": "#/definitions/RepoStatus"
+          },
+          "type": "object"
+        },
+        "slug": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "branch",
+        "key",
+        "repo_statuses",
+        "slug"
       ],
       "type": "object"
     }
@@ -4141,10 +4471,16 @@ This document defines the list of typed JSON commands supported by the AI worksp
     "create_branches": {
       "type": "boolean"
     },
+    "description": {
+      "type": "string"
+    },
     "editor": {
       "type": "string"
     },
-    "epic_key": {
+    "folder": {
+      "type": "string"
+    },
+    "id": {
       "type": "string"
     },
     "repo_statuses": {
@@ -4158,15 +4494,34 @@ This document defines the list of typed JSON commands supported by the AI worksp
         "type": "string"
       },
       "type": "array"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/definitions/TaskStatusOutput"
+      },
+      "type": "array"
+    },
+    "ticket": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "title": {
+      "type": "string"
     }
   },
   "required": [
     "base_branch",
     "create_branches",
+    "description",
     "editor",
-    "epic_key",
+    "folder",
+    "id",
     "repo_statuses",
-    "services"
+    "services",
+    "tasks",
+    "title"
   ],
   "title": "WorkspaceStatusOutput",
   "type": "object"
