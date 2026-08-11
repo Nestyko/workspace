@@ -59,10 +59,11 @@ use ws_dev::{dev_install, dev_purge, dev_uninstall, DevInstallInput, DEFAULT_DEV
 use ws_providers::{
     PrCreateCommand, ProviderCodeCheckAuthCommand, ProviderCodeGetRepoCommand,
     ProviderCodeListRecentReposCommand, ProviderConfigGetInstructionsCommand,
-    ProviderConfigSyncInstructionsCommand, ProviderDocCheckAuthCommand,
-    ProviderDocCreatePageCommand, ProviderDocGetPageCommand, ProviderDocUpdatePageCommand,
-    ProviderIssueCheckAuthCommand, ProviderIssueCommentCommand, ProviderIssueCreateEpicCommand,
-    ProviderIssueCreateIssueCommand, ProviderIssueGetIssueCommand, ProviderIssueLinkCommand,
+    ProviderConfigSyncInstructionsCommand, ProviderConfigSyncInstructionsInput,
+    ProviderDocCheckAuthCommand, ProviderDocCreatePageCommand, ProviderDocGetPageCommand,
+    ProviderDocUpdatePageCommand, ProviderIssueCheckAuthCommand, ProviderIssueCommentCommand,
+    ProviderIssueCreateEpicCommand, ProviderIssueCreateIssueCommand, ProviderIssueGetIssueCommand,
+    ProviderIssueLinkCommand,
 };
 
 #[derive(Parser, Clone, Debug)]
@@ -829,6 +830,23 @@ docs:
 "#;
         fs::write(&svc_template_path, svc_template)?;
     }
+
+    // Write the ws-managed root AGENTS.md: the compact harness contract pointing at the
+    // knowledge base (catalog/knowledge/), the catalog (services/products/teams), and
+    // where/how/when to start tasks. Runs on every init so a fresh workspace tells agents
+    // where things live.
+    let sync_ctx = CommandContext::new(
+        new_config.clone(),
+        root.to_path_buf(),
+        None,
+        None,
+        None,
+        HashMap::new(),
+    );
+    let sync_out = ProviderConfigSyncInstructionsCommand
+        .run(sync_ctx, ProviderConfigSyncInstructionsInput {})
+        .await?;
+    println!("\nWrote root AGENTS.md at {}", sync_out.path);
 
     let start_discovery =
         Confirm::new("Would you like to discover repositories to add to the catalog?")
