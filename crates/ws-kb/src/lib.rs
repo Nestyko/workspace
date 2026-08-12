@@ -1,4 +1,4 @@
-//! `ws kb` — knowledge-base scaffold & lint (library seam).
+//! `ws kb` — knowledge-base scaffold (library seam).
 //!
 //! Pure functions over a filesystem root, mirroring the idiom of
 //! `ws-catalog`'s `ensure_catalog_dirs` / `add_knowledge` functions but
@@ -9,22 +9,17 @@
 //! canonical embedded-asset location, Decision 3) and is embedded into this
 //! crate at build time via `include_dir!`.
 //!
-//! ## Test pattern (for follow-on tickets: `lint`, `idempotency`)
+//! ## Test pattern
 //!
-//! Tests live at the library-function seam (`scaffold`/`lint`) over a
+//! Tests live at the library-function seam (`scaffold`) over a
 //! `tempfile::TempDir` root — no CLI, no real workspace. The independent
 //! source of truth is the embedded `KB_ASSETS` tree: tests walk it to derive
-//! expected paths/bytes, then compare against what landed on disk. Mirror this
-//! shape in `lint` tests (build fixture wikis under a TempDir, assert
-//! findings).
+//! expected paths/bytes, then compare against what landed on disk.
 
 use include_dir::{include_dir, Dir, DirEntry, File};
 use std::fs;
 use std::path::Path;
 use ws_core::error::WorkspaceError;
-
-pub mod lint;
-pub use lint::{lint, FindingType, LintFinding, Severity};
 
 /// The canonical embedded knowledge-base asset tree.
 ///

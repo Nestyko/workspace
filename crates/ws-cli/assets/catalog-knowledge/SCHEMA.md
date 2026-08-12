@@ -96,7 +96,7 @@ Provenance is a **hybrid model** with two source types:
 - The stored citation is the parseable typed token, e.g. `[commit:abc123]`.
 - In prose the agent renders it as a clickable markdown link, e.g.
   `[\`abc123\`](https://github.com/org/repo/commit/abc123)`.
-- `ws kb lint` does **not** parse or validate typed tokens in MVP.
+- The lint pass does **not** parse or validate typed tokens in MVP.
 
 ### Concept-keyed source pages for pointer clusters
 - When a bundle of pointers needs narrative explanation (e.g. the relationship
@@ -202,12 +202,12 @@ wiki (no folder partition). See [Both streams live here](#both-streams-live-here
 
 ## Operations
 
-> **Agent-performed markdown edits.** Ingest, Query, and Update below are
-> operations the agent performs by editing markdown directly — there is no CLI
-> command for them. The mechanical subset of Lint (orphans + broken
-> `[[wikilinks]]`) is delegated to `ws kb lint` (the CLI); the judgment subset
-> (contradictions, stale claims, missing cross-references,
-> concepts-mentioned-but-pageless) stays with the agent.
+> **Agent-performed markdown edits.** Ingest, Query, Update, and Lint below are
+> operations the agent performs by editing markdown directly (and, for Lint,
+> running its own checks) — there is no CLI command for them, and the
+> mechanical subset (orphans + broken `[[wikilinks]]`) is the agent's to run
+> just as the judgment subset (contradictions, stale claims, missing
+> cross-references, concepts-mentioned-but-pageless) is.
 
 ### Ingest — adding a source
 Trigger: the human drops a file into `raw/` (or points to a Confluence page) and
@@ -270,12 +270,11 @@ unconfirmed fact or concept not yet backed by a source. Flow:
 Never silently inject an unconfirmed fact into the wiki as if it were sourced.
 
 ### Lint — health-check
-The **mechanical subset** of lint is owned by `ws kb lint` (the CLI): orphans
-(wiki pages with no inbound `[[wikilinks]]`) and broken `[[wikilinks]]` (target
-slug resolves to no page). Run it routinely.
-
-The **judgment subset** is a SCHEMA-defined agent operation (the agent, not the
-CLI). Run periodically (or when the human asks). Look for and report:
+A SCHEMA-defined **agent operation** (there is no `ws kb lint` CLI command —
+the CLI ships only `ws kb init`). Run it routinely, or when the human asks.
+Look for and report:
+- Orphan pages (wiki pages with no inbound `[[wikilinks]]`).
+- Broken `[[wikilinks]]` (target slug resolves to no page).
 - Contradictions between pages.
 - Stale claims superseded by newer sources.
 - Important concepts mentioned but lacking their own page.
