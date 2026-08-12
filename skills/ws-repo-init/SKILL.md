@@ -4,8 +4,10 @@ description: >-
   Bootstrap a cataloged-but-uninitialized repo from zero to "cataloged + Understand-Anything
   artifact + commands smoke-validated" in one fast pass. Runs inside the customer's harness:
   clones + onboarding worktree, invokes the /understand skill locally to produce the
-  knowledge-graph artifact (Point #1), derives catalog fields from the graph + lockfile, and
-  records them via catalog.service.update. Then runs a 30s repo.run smoke per command,
+  knowledge-graph artifact (Point #1), re-derives every catalog field by querying the graph
+  via /understand-chat (never reading the raw JSON wholesale), diffs each against the existing
+  catalog entry to find stale/missing fields, patches only those via catalog.service.update,
+  and reports each change to the user. Then runs a 30s repo.run smoke per command,
   recording declarations only on pass (mini fix-loop capped at 4 attempts). A --full flag
   lifts the 30s cap and delegates deep convergence to the full ws-self-heal Mode B loop.
   Prefer .ua/ artifact dir with .understand-anything/ as legacy fallback. Manually invoked
@@ -57,6 +59,14 @@ on pass, a 4-attempt mini fix-loop, cap-exhaustion halts that repo and reports. 
 into deep convergence and delegates to `ws-self-heal` Mode B. Init = catalog + artifact +
 smoke; deep green = `ws-self-heal`.
 
+**Stale-check (the reason this skill is safe to re-run):** once the Understand-Anything
+artifact exists (Step 4), every catalog field is re-derived by *querying the graph through
+the `/understand-chat` skill* — not by reading the 700KB+ `knowledge-graph.json` raw bytes
+into context. Step 5 diffs each fresh value against the existing catalog entry and patches
+only the fields that drifted (description first, then `commands.*`, `owns`,
+`likely_relevant_when`, `deploy`, `docs`, ...), reporting the old → new for every change.
+An already-initialized repo is the *normal* case here, not a gate.
+
 **Sharp edge — field naming (carry over from `ws-self-heal`):** the `ws` commands use two
 different field names for the service identifier:
 - `repo.healthcheck`, `repo.run`, `repo.verify`, `repo.fix_loop.prompt`, `repo.understand.verify` → **`service_id`**.
@@ -106,18 +116,23 @@ Do not proceed.
 list the closest candidates and ask the customer to confirm before proceeding. Collect the
 resolved `{id, name, repo:{url, default_branch}}` for each selected repo.
 
-### Step 2 — Already-initialized check (per repo)
+### Step 2 — Load the baseline catalog entry (per repo)
 
-"Initialized" = `commands.install` + `commands.test` + `description` are all non-empty in
-the catalog entry:
+Fetch the current catalog entry — this is the **baseline** Step 5 diffs against:
 ```bash
 printf '%s' '{"id":"<id>"}' > /tmp/repo-init-get-<id>.json
 ws ai run catalog.service.get --input /tmp/repo-init-get-<id>.json
 ```
-If already initialized → ask the customer: "repo `<id>` is already set up — re-run init and
-**override (patch)** the derived fields?" Proceed on yes **only**. **Decision (b): override
-is a patch, never a wipe** — `catalog.service.update` does a per-key merge; only changed
-fields are written. Reuse the existing onboarding branch when present (Step 3).
+Capture the full entry (`description`, `commands.*`, `owns`, `likely_relevant_when`,
+`deploy`, `docs`, `understand_anything`, ...) as the baseline. This skill always re-derives
+from the graph and patches only what drifted, so an "already-initialized" repo is **not a
+gate** — it is the normal drift-check case (baseline non-empty). An empty or partial
+baseline just means every field is `missing` and will be added in Step 5. Reuse the
+existing onboarding branch from a prior run when present (Step 3); no customer confirmation
+is required to patch stale fields — Step 5 reports every change before applying it.
+
+**Decision (b): override is a patch, never a wipe** — `catalog.service.update` does a
+per-key merge; only changed fields are written.
 
 ### Step 3 — Clone + onboarding worktree (per repo)
 
@@ -163,41 +178,65 @@ Understand-Anything default and the **preferred** location; `.understand-anythin
   git -C <worktree> commit -m "chore(understand-anything): commit knowledge-graph artifact"
   ```
 
-### Step 5 — Derive catalog fields (per repo)
+### Step 5 — Re-derive fields from the graph, diff vs baseline, patch stale (per repo)
 
-From the `.ua/knowledge-graph.json` (summaries / components / layers) + lockfile inspection,
-derive — do not guess; if a field cannot be derived, leave it empty and flag it as deferred:
+The Understand-Anything graph (`.ua/knowledge-graph.json`, committed in Step 4) is the source
+of truth for what the repo *actually* is today. **Do not read the raw JSON field-by-field** —
+the graph is routinely 700KB+ and would blow the context window for zero benefit. Instead,
+query it through the `/understand-chat` skill, which greps the graph for exactly the subgraph
+you ask about and returns only the matching nodes/edges. Run `/understand-chat` from inside
+the worktree dir so it resolves `$UA_DIR` automatically (`.ua/` first, then legacy
+`.understand-anything/`). Example pi invocation:
 
-- `description` — one paragraph of what the repo does (from the graph summary).
-- `commands.install` — lockfile → `package.json`=`npm install`, `Cargo.toml`=`cargo build`,
-  `go.mod`=`go mod download`, `pyproject.toml`=`pip install -e .` / `uv sync`,
-  `Gemfile`=`bundle install`.
-- `commands.test` — runner from the manifest (`npm test`, `cargo test`, `go test ./...`,
-  `pytest`, `vitest`/`jest`).
-- `commands.dev` / `commands.run` — best-effort from package.json `scripts` / binary entry
-  points. If none, leave empty (deferred to `ws-self-heal`).
-- `commands.verify_run` — a one-liner confirming the service came up
-  (`curl -fsS localhost:<port>/healthz`); leave empty for libraries/CLIs.
-- `commands.agent_verify` — `./scripts/verify-change.sh`; author a stub if absent
-  (re-run unit tests + a targeted check of the changed surface).
-- `owns` — domains / components from the graph.
-- `likely_relevant_when` — keywords / tags from the graph (this is what `context.resolve`
-  consumes to decide "do we need this repo for a workspace prompt").
-- `deploy` — command string, or `{skip: true, reason: "library, no deploy target"}` for
-  library / CLI repos.
-- `docs` — `[{type: readme, path: README.md}]`; add `{type: agent, path: AGENT.md}` (or
-  `CLAUDE.md`) if present.
-- `understand_anything: { enabled: true }`.
-
-Record via `catalog.service.update` (field is **`id`**, NOT `service_id`):
-```bash
-printf '%s' '{"id":"<id>","description":"...","commands":{"install":"...","test":"...","agent_verify":"./scripts/verify-change.sh","dev":"...","run":"...","verify_run":"..."},"owns":["..."],"likely_relevant_when":["..."],"deploy":{"skip":true,"reason":"library, no deploy target"},"docs":[{"type":"readme","path":"README.md"}],"understand_anything":{"enabled":true}}' > /tmp/repo-init-update-<id>.json
-ws ai run catalog.service.update --input /tmp/repo-init-update-<id>.json
+```
+/understand-chat What does this repo do? Summarize its purpose, primary language, frameworks, and main entry points in one paragraph.
 ```
 
+For **each** catalog field below, ask `/understand-chat` the listed query (or, where noted,
+inspect the lockfile at the repo root), capture a fresh value, and diff it against the Step 2
+baseline. **Do not guess** — if a query returns nothing actionable, leave the field empty and
+flag it as **deferred** (handed off to `ws-self-heal` in Step 8). Do not fall back to mining
+the raw `knowledge-graph.json` wholesale to "find something" — an empty answer means the
+graph does not carry that signal.
+
+| Field | How to derive (fresh value) |
+|---|---|
+| `description` | `/understand-chat` "What does this repo do? Summarize purpose, primary language, frameworks, and main entry points in one paragraph." → graph `project.description` + node summaries. **This is the headline stale-check.** |
+| `owns` | `/understand-chat` "What domains, components, or architectural layers does this repo own?" → `layers[]` + domain/component nodes. |
+| `likely_relevant_when` | `/understand-chat` "What keywords, tags, and technologies would signal this repo is relevant to a task?" → `project.frameworks`/`languages` + node `tags[]`. (This is what `context.resolve` consumes to decide "do we need this repo for a workspace prompt".) |
+| `commands.install` | **Lockfile** (not the graph): `package.json`→`npm install`, `Cargo.toml`→`cargo build`, `go.mod`→`go mod download`, `pyproject.toml`→`pip install -e .` / `uv sync`, `Gemfile`→`bundle install`. |
+| `commands.test` | `/understand-chat` "What test runner does this repo use and what is its command?" then map to `npm test` / `cargo test` / `go test ./...` / `pytest` / `vitest` / `jest` (cross-check the lockfile). |
+| `commands.dev` | `/understand-chat` "How do you start this service for local development?" → `scripts.dev` in package.json / entry-point nodes. If none, leave empty (deferred). |
+| `commands.run` | `/understand-chat` "How do you start this service in production?" → entry-point nodes / Dockerfile / main binary. |
+| `commands.verify_run` | `/understand-chat` "What health or readiness endpoint/probe confirms the service came up?" → graph `endpoint` nodes. Leave empty for libraries/CLIs. |
+| `commands.agent_verify` | `./scripts/verify-change.sh`; author a stub if absent (re-runs unit tests + a targeted check of the changed surface). Smoke-validated in Step 6. |
+| `deploy` | `/understand-chat` "Does this repo build a deployable service, a library, or a CLI?" → service: deploy command string; library/CLI: `{skip: true, reason: "library, no deploy target"}`. |
+| `docs` | `/understand-chat` "What README, architecture doc, or agent file exists at the repo root?" → `[{type: readme, path: README.md}]`; add `{type: agent, path: AGENT.md}` (or `CLAUDE.md`) if present. |
+| `understand_anything` | Always `{enabled: true}` once the artifact exists (Step 4 committed it). |
+
+**Classify each field:** `current` (fresh == baseline, no-op) · `stale` (baseline differs →
+replace) · `missing` (baseline empty/absent → add).
+
+**Diff + patch procedure:**
+1. Build the fresh-value map above for every field.
+2. Compare field-by-field against the baseline from Step 2.
+3. **Report the drift to the customer before writing** — a compact table, one row per
+   non-`current` field:
+   | field | status | old → new |
+   `current` rows may be summarized as "✓ unchanged" (or omitted). This is the "let the user
+   know what we are updating" moment; surface *especially* the `description` change.
+4. Apply only the `stale`/`missing` fields via `catalog.service.update` (per-key merge —
+   unchanged fields are never sent). Field is **`id`**, NOT `service_id`:
+   ```bash
+   printf '%s' '{"id":"<id>","description":"...","commands":{"install":"...","test":"...","agent_verify":"./scripts/verify-change.sh","dev":"...","run":"...","verify_run":"..."},"owns":["..."],"likely_relevant_when":["..."],"deploy":{"skip":true,"reason":"library, no deploy target"},"docs":[{"type":"readme","path":"README.md"}],"understand_anything":{"enabled":true}}' > /tmp/repo-init-update-<id>.json
+   ws ai run catalog.service.update --input /tmp/repo-init-update-<id>.json
+   ```
+5. Keep the drift table — Step 8 echoes it in the per-repo report so the customer has a
+   record of exactly what `ws-repo-init` changed in the catalog.
+
 **Repo not yet in catalog** (caller added via `ws add repo` but the entry is a minimal stub):
-first `catalog.service.add` a minimal valid stub (all `required` fields), then
-`catalog.service.update` the derived fields above.
+first `catalog.service.add` a minimal valid stub (all `required` fields), then the diff
+above treats the stub as an empty baseline (every field is `missing`).
 
 ### Step 6 — Fast smoke (30s) via `repo.run`
 
@@ -244,9 +283,11 @@ ws ai run catalog.validate --input '{}'
 # expect: {"success": true, "message": "All catalog files are valid."}
 ```
 
-Report **per repo**: status, catalog fields filled, commands that passed / failed / timed
-out at 30s, deferred gaps, and the onboarding branch (`ws/repo-init/<id>`) + worktree path.
-End with:
+Report **per repo**: status, the **drift table from Step 5** (every `stale` / `missing`
+field patched, with old → new — `description` first), commands that passed / failed /
+timed out at 30s, deferred gaps, and the onboarding branch (`ws/repo-init/<id>`) + worktree
+path. If nothing drifted, state "no catalog drift detected" explicitly so the customer
+knows the entry was already current. End with:
 > Run `/skill:ws-self-heal <id>` for full convergence (deep Mode B fix-loop).
 
 Note that the CI Action + `ZEN_API_KEY` secret for Point #1's **production refresh** remains
