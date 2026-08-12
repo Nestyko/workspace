@@ -1,7 +1,20 @@
-id: EPIC-KEY
+id: realtime-chat
+ticket: EPIC-123          # optional: omit while the feature is unticketed
+title: Realtime Chat
+created_at: 2026-08-11T00:00:00Z   # optional, set automatically on create
+description: >
+  A realtime chat agent for the web platform. Powers `ws tasks` search.
+
 services:
   - service-a
   - service-b
 base_branch: main
 create_branches: true
 editor: cursor
+
+# Optional per-task slices (<ws.id>-<slug> branches, tasks/<slug>/repos).
+# tasks:
+#   - key: TASK-1
+#     slug: task-a
+#     repos:
+#       - service-a

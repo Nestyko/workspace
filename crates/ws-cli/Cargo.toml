@@ -7,6 +7,12 @@ edition = "2021"
 name = "ws"
 path = "src/main.rs"
 
+# Alias binary for CI/integration testing (see crates/ws-cli/tests/). Never
+# clobbers the stable `ws` name; tests drive this one via CARGO_BIN_EXE_ws-test.
+[[bin]]
+name = "ws-test"
+path = "src/main.rs"
+
 
 [dependencies]
 clap = { workspace = true }

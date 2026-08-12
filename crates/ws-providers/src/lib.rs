@@ -8,9 +8,8 @@ use ws_core::command::AiCommand;
 use ws_core::context::CommandContext;
 use ws_core::error::WorkspaceError;
 use ws_core::models::{
-    AuthStatus, Comment, CreateEpicInput, CreateIssueInput, CreatePullRequestInput, Issue,
-    LinkIssuesInput, ListRecentReposInput, PullRequest, PushBranchInput, RepoDetails, RepoRef,
-    RepoSummary, UpdateIssueInput, Workspace,
+    AuthStatus, CreateEpicInput, CreateIssueInput, CreatePullRequestInput, Issue, LinkIssuesInput,
+    ListRecentReposInput, PushBranchInput, RepoDetails, RepoRef, RepoSummary, Workspace,
 };
 
 // Re-export provider traits from core
@@ -464,9 +463,10 @@ impl AiCommand for ProviderConfigGetInstructionsCommand {
 // AI Command: provider.config.sync_instructions
 // ==========================================
 
-/// Regenerate the ws-managed **company `AGENTS.md`** at the workspace root to reflect
-/// the current `workflows/*.md`, the current catalog, and company practices (incl. the
-/// repo-init healthcheck surface). Counterpart to read-only `provider.config.get_instructions`.
+/// Regenerate the ws-managed **company `AGENTS.md`** at the workspace root: a compact
+/// harness contract pointing at the knowledge base (`catalog/knowledge/`), the catalog
+/// (`services` = repos, products, teams), where/how/when to start tasks, and the core
+/// operational rules. Counterpart to read-only `provider.config.get_instructions`.
 ///
 /// Non-destructive to third-party integration blocks: any `<!-- BEGIN ... -->` /
 /// `<!-- END ... -->` block already present (e.g. the Beads tracker section) is preserved
@@ -486,7 +486,7 @@ pub struct ProviderConfigSyncInstructionsCommand;
 #[async_trait]
 impl AiCommand for ProviderConfigSyncInstructionsCommand {
     const ID: &'static str = "provider.config.sync_instructions";
-    const DESCRIPTION: &'static str = "Regenerate the ws-managed company AGENTS.md (workflows + catalog + practices). Non-destructive to integration blocks.";
+    const DESCRIPTION: &'static str = "Regenerate the ws-managed company AGENTS.md (workspace map + rules). Non-destructive to integration blocks.";
     type Input = ProviderConfigSyncInstructionsInput;
     type Output = ProviderConfigSyncInstructionsOutput;
 
@@ -496,7 +496,7 @@ impl AiCommand for ProviderConfigSyncInstructionsCommand {
         _input: Self::Input,
     ) -> Result<Self::Output, WorkspaceError> {
         let root = &ctx.workspace_root;
-        let body = generate_company_agents_md(root);
+        let body = generate_company_agents_md();
 
         // Preserve third-party integration blocks (anything between explicit
         // BEGIN/END markers) found in the existing file, so regeneration is non-destructive
@@ -526,7 +526,7 @@ impl AiCommand for ProviderConfigSyncInstructionsCommand {
     }
 }
 
-fn generate_company_agents_md(root: &Path) -> String {
+fn generate_company_agents_md() -> String {
     let mut s = String::new();
     s.push_str("# AI Workspace Rules for Autonomous Coding Agents\n\n");
     s.push_str("Welcome Agent! This document defines your behavioral boundaries, rules, and guidelines when working in this multi-repo workspace. **This file is ws-managed** — regenerate it with `ws ai run provider.config.sync_instructions --input '{}'`. Do not hand-edit the ws-managed sections; append custom integration blocks between dedicated BEGIN/END markers instead.\n\n");
@@ -538,80 +538,13 @@ fn generate_company_agents_md(root: &Path) -> String {
     s.push_str("4. **Preserve Baseline Commits:** Always reference `baseline_commit` inside `locks.yaml` when analyzing changes or creating pull requests.\n");
     s.push_str("5. **Always Validate:** Before committing new catalogs, run `ws ai run catalog.validate --input '{}'` to ensure parsing schemas are fully respected.\n\n");
 
-    s.push_str("## Workflow Rules\n\n");
-    s.push_str(
-        "Refer to the workflows documented under `workflows/` for step-by-step processes:\n",
-    );
-    let workflows_dir = root.join("workflows");
-    let mut workflows: Vec<String> = Vec::new();
-    if let Ok(entries) = fs::read_dir(&workflows_dir) {
-        for e in entries.flatten() {
-            let p = e.path();
-            if p.extension().and_then(|x| x.to_str()) == Some("md") {
-                if let Some(stem) = p.file_stem().and_then(|x| x.to_str()) {
-                    workflows.push(stem.to_string());
-                }
-            }
-        }
-    }
-    workflows.sort();
-    for stem in &workflows {
-        s.push_str(&format!(
-            "  - [workflows/{}.md](workflows/{}.md)\n",
-            stem, stem
-        ));
-    }
-    s.push('\n');
-
-    s.push_str("## Repo-Init Healthcheck (ws / harness / customer split)\n\n");
-    s.push_str("When a repo is initialized/added to the catalog, the harness works it through the locked 10-point checklist in [workflows/repo-init.md](workflows/repo-init.md). The split is invariant:\n\n");
-    s.push_str("- **`ws`** = the deterministic oracle: reads (`repo.healthcheck`), executes a single command (`repo.run`), emits specs (`repo.fix_loop.prompt`), validates writes (`catalog.service.update`, strict). **Never fixes, never judges, never owns an LLM.**\n");
-    s.push_str("- **Customer's harness** = the agent. Runs setup, picks the harness+provider for #1, performs the 2-subagent fix-loop ([workflows/repo-verify.md](workflows/repo-verify.md)), authors `verify_run`/`agent_verify` scripts, calls `catalog.service.update`.\n");
-    s.push_str("- **Customer (human)** = fills gaps the harness can't (probe-script content, deploy envs in [workflows/deploy.md](workflows/deploy.md), decides integration-test applicability).\n\n");
-    s.push_str("Relevant `ws ai run` commands: `repo.healthcheck`, `repo.run`, `repo.verify`, `repo.fix_loop.prompt`, `repo.understand.verify`, `catalog.service.update`. Run `ws ai manifest` for the full list and `ws ai schema <command> input` for input shapes.\n\n");
-
-    s.push_str("## Catalog Snapshot\n\n");
-    let svc = count_yaml(&root.join("catalog/services"));
-    let prod = count_yaml(&root.join("catalog/products"));
-    let team = count_yaml(&root.join("catalog/teams"));
-    s.push_str(&format!(
-        "- Services: {} registered under `catalog/services/`\n",
-        svc
-    ));
-    s.push_str(&format!(
-        "- Products: {} registered under `catalog/products/`\n",
-        prod
-    ));
-    s.push_str(&format!(
-        "- Teams: {} registered under `catalog/teams/`\n",
-        team
-    ));
-    s.push_str("\n");
-
-    s.push_str("## Product Knowledge Base\n\n");
-    s.push_str("The company product side maintains an LLM-maintained wiki under `catalog/knowledge/`, following the [LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). It is a persistent, compounding artifact: source documents are compiled once into interlinked markdown and kept current over time.\n\n");
-    s.push_str("- **Read `catalog/knowledge/SCHEMA.md` before maintaining the wiki** — it is the authoritative contract for structure, conventions, and the ingest/query/update/lint operations.\n");
-    s.push_str("- **Raw sources** go in `catalog/knowledge/raw/` (the human drops files here; it is gitignored and never modified by the agent). External Document sources are also supported — by default **Confluence** (see `config/providers/confluence.md` and each product's `knowledge_sources`).\n");
-    s.push_str("- **The wiki** (`catalog/knowledge/wiki/`) is agent-owned, version-controlled markdown (`index.md` + `log.md` + topic/entity/source/synthesis pages).\n");
-    s.push_str("- When brainstorming an idea, use the wiki as the primary context layer. If a new, unconfirmed fact surfaces, **ask the user to confirm it and provide a source before integrating it** — never inject unconfirmed facts as if they were sourced.\n");
-    s.push_str("- This covers the **product side only**. Do not restructure `catalog/teams/` or `catalog/services/` or mirror their content into this wiki.\n");
+    s.push_str("## Map\n\n");
+    s.push_str("- **Knowledge base** (Karpathy LLM-wiki): `catalog/knowledge/`. Read `catalog/knowledge/SCHEMA.md` before maintaining; `catalog/knowledge/raw/` = human-dropped sources (never edit), `catalog/knowledge/wiki/` = agent-owned pages. Use it as the primary context for product work; have the user confirm and source any unverified fact before you inject it.\n");
+    s.push_str("- **Catalog** (one YAML file per entity): `catalog/services/<repo>.yaml` = the git repos, `catalog/products/<id>.yaml` = products, `catalog/teams/<id>.yaml` = teams.\n");
+    s.push_str("- **Tasks**: epic workspaces live in `workspaces/<slug>/`. Start a task when a feature/epic needs implementation: `ws ai run workspace.create` (epic) -> `ws ai run workspace.add_task` (slice) -> work inside the generated worktree. List open tasks with `ws tasks`; resume with `ws tasks show|open <token>`.\n");
+    s.push_str("- **Runbooks**: step-by-step processes in `workflows/*.md` (repo-init, repo-verify, deploy, issue-to-implementation).\n");
 
     s.trim_end().to_string()
-}
-
-fn count_yaml(dir: &Path) -> usize {
-    fs::read_dir(dir)
-        .map(|it| {
-            it.filter_map(|e| e.ok())
-                .filter(|e| {
-                    e.path()
-                        .extension()
-                        .and_then(|x| x.to_str())
-                        .map_or(false, |x| x == "yaml" || x == "yml")
-                })
-                .count()
-        })
-        .unwrap_or(0)
 }
 
 /// Extract and return verbatim any `<!-- BEGIN ... --> ... <!-- END ... -->` blocks
@@ -676,11 +609,13 @@ impl AiCommand for PrCreateCommand {
             WorkspaceError::Config("No code provider configured for PR creation".to_string())
         })?;
 
-        // Load workspace directly to avoid cyclic dependencies
+        // Load workspace by content (folder is derived from id/ticket).
+        let entry =
+            ws_core::workspaces::resolve_workspace(&ctx.workspace_root, &input.workspace_id)?;
         let ws_path = ctx
             .workspace_root
             .join("workspaces")
-            .join(&input.workspace_id)
+            .join(&entry.folder)
             .join("workspace.yaml");
 
         if !ws_path.exists() {
@@ -704,16 +639,13 @@ impl AiCommand for PrCreateCommand {
                 )));
             }
 
-            let branch_name = if ws.create_branches {
-                input.workspace_id.clone()
-            } else {
-                input.workspace_id.clone()
-            };
+            // Branch naming: <ticket> if assigned, else the slug (spec 4.1).
+            let branch_name = ws.ticket.clone().unwrap_or_else(|| ws.id.clone());
 
             // 1. Push branch
             code_provider
                 .push_branch(PushBranchInput {
-                    epic_key: input.workspace_id.clone(),
+                    folder: entry.folder.clone(),
                     service_id: service_id.clone(),
                     branch: branch_name.clone(),
                 })
@@ -722,7 +654,7 @@ impl AiCommand for PrCreateCommand {
             // 2. Create PR
             let pr = code_provider
                 .create_pull_request(CreatePullRequestInput {
-                    epic_key: input.workspace_id.clone(),
+                    folder: entry.folder.clone(),
                     service_id: service_id.clone(),
                     branch: branch_name.clone(),
                     title: input.title.clone(),

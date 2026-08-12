@@ -41,7 +41,5 @@ yarn-error.log*
 pnpm-debug.log*
 
 
-# Beads / Dolt files (added by bd init)
-.dolt/
+# Dolt database files
 *.db
-.beads-credential-key
