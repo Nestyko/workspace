@@ -32,14 +32,14 @@ and filing them only on consent, with references tracing where each concept came
 
 Ship a `ws kb` subcommand namespace backed by embedded assets (Tier-3 scaffolding seeds per the
 restructure ADR). The CLI owns **structural consistency**; the agent (following `SCHEMA.md`) owns
-**content and operations**. Two CLI commands only:
+**content and operations**. One CLI command only:
 
 - **`ws kb init`** — scaffolds the complete knowledge-base tree from embedded canonical assets.
   Skip-by-default on existing files (user content is never destroyed); a `--reset <asset>` flag
   explicitly refreshes a single asset from the embedded copy.
-- **`ws kb lint`** — deterministic health check. MVP scope is deliberately minimal: **orphans**
-  (wiki pages with no inbound `[[wikilinks]]`) and **broken `[[wikilinks]]`** (links whose target
-  slug resolves to no page). Nothing else for MVP.
+
+Health-check lint (orphans, broken `[[wikilinks]]`, and the judgment subset) is an
+**agent operation**, not a CLI command, exactly like ingest/query/update below.
 
 Everything else — **ingest, query, update, concept capture, the yes/no gate, cross-referencing,
 log/index maintenance** — is an **agent operation defined in `SCHEMA.md`**, performed by editing
@@ -96,10 +96,10 @@ source page** as a provenance marker — never as a bare inline token on a topic
 23. As a **wiki maintainer**, I want the single wiki to hold both product and engineering streams, so that cross-stream links (an engineering concept touching a product feature) are first-class `[[wikilinks]]`.
 24. As a **wiki maintainer**, I want streams distinguished by a `stream` frontmatter field (not by folder), so that the wiki stays flat and the agent can categorize/filter without physical partition.
 25. As a **wiki maintainer**, I want the implicit graph of `[[wikilinks]]` navigable in a markdown graph viewer (e.g. Obsidian), so that I can see what connects to what without a dedicated index store.
-26. As a **wiki maintainer**, I want `ws kb lint` to report orphan pages (no inbound `[[wikilinks]]`), so that I can find pages that have drifted out of the graph.
-27. As a **wiki maintainer**, I want `ws kb lint` to report broken `[[wikilinks]]` (target slug resolves to no page), so that dangling links surface before they mislead a reader.
-28. As a **wiki maintainer**, I want `ws kb lint` to be fast and deterministic, so that I can run it routinely without thinking about it.
-29. As a **wiki maintainer**, I want `ws kb lint` to emit a parseable, machine-friendly report, so that the agent (or CI) can act on findings.
+26. As a **wiki maintainer**, I want the Lint health-check to report orphan pages (no inbound `[[wikilinks]]`), so that I can find pages that have drifted out of the graph.
+27. As a **wiki maintainer**, I want the Lint health-check to report broken `[[wikilinks]]` (target slug resolves to no page), so that dangling links surface before they mislead a reader.
+28. As a **wiki maintainer**, I want the Lint health-check to be fast, so that it gets run routinely without being a burden.
+29. As a **wiki maintainer**, I want lint findings logged in `wiki/log.md`, so that the timeline records what was checked and found.
 30. As a **workspace owner**, I want the SCHEMA and template documents embedded in the binary, so that `ws kb init` reproduces a canonical knowledge base with no external dependencies.
 31. As a **workspace owner**, I want the scaffolded `SCHEMA.md` to document the hybrid provenance model and the pointer citation vocabulary, so that the agent has a precise contract to follow for engineering concepts.
 32. As a **workspace owner**, I want the scaffolded `_template.md` to include the `stream` frontmatter field, so that every new page starts with the streams convention.
@@ -108,7 +108,7 @@ source page** as a provenance marker — never as a bare inline token on a topic
 35. As a **teammate cloning the repo**, I want pointer-cluster source pages (in `wiki/sources/`) to be version-controlled text, so that external-link evidence is shared with the team and not stranded on one machine.
 36. As an **agent**, I want a documented Query operation (read `index.md`, follow `[[wikilinks]]`, synthesize with citations, file valuable answers back as `synthesis/` pages), so that exploration compounds in the knowledge base.
 37. As an **agent**, I want a documented Update operation (surface an unconfirmed fact, ask the human for a source, only integrate once a source exists), so that unconfirmed claims never enter the wiki as if sourced.
-38. As an **agent**, I want a documented Lint operation (contradictions, stale claims, missing cross-references, concepts mentioned-but-pageless), so that the wiki stays healthy over time — noting that the *mechanical* subset of lint is owned by `ws kb lint` and the *judgment* subset is mine.
+38. As an **agent**, I want a documented Lint operation (orphans, broken `[[wikilinks]]`, contradictions, stale claims, missing cross-references, concepts mentioned-but-pageless), so that the wiki stays healthy over time.
 39. As an **agent**, I want source-page identifiers to be stable and semantic (e.g. `src-pricing-evidence`), so that pages don't fragment by ingest date.
 40. As a **future maintainer**, I want the feature MD to record that `ws kb graph` and a real index store are deferred to post-MVP, so that the evolution path is intentional rather than forgotten.
 
@@ -117,26 +117,25 @@ source page** as a provenance marker — never as a bare inline token on a topic
 ### Architectural decisions (from the grilling session)
 
 1. **Single knowledge base, both streams.** One wiki holds product and engineering knowledge. Streams are a frontmatter concern (`stream: product | engineering`), not a folder partition. The agent distinguishes streams at save/query time; cross-stream `[[wikilinks]]` form an implicit graph.
-2. **CLI governs structural consistency; SCHEMA governs content + operations.** The CLI's job is mechanical (scaffold + lint). The agent's job, defined entirely in `SCHEMA.md`, is everything else (ingest, query, update, concept capture, cross-referencing, log/index maintenance).
-3. **CLI surface = two commands only.** `ws kb init` and `ws kb lint`. There is deliberately **no** `ws kb ingest`, `ws kb query`, `ws kb update`, `ws kb list`, `ws kb status`, or `ws kb suggest`. Ingest is a SCHEMA-defined agent workflow performed by editing markdown; the yes/no gate invokes that workflow on consent.
+2. **CLI governs structural consistency; SCHEMA governs content + operations.** The CLI's job is mechanical (scaffold only). The agent's job, defined entirely in `SCHEMA.md`, is everything else — ingest, query, update, lint (mechanical + judgment), concept capture, cross-referencing, log/index maintenance.
+3. **CLI surface = one command only.** `ws kb init`. There is deliberately **no** `ws kb ingest`, `ws kb query`, `ws kb update`, `ws kb lint`, `ws kb list`, `ws kb status`, or `ws kb suggest`. Ingest and lint are SCHEMA-defined agent workflows; the yes/no gate invokes ingest on consent.
 4. **Hybrid provenance.** Two source types: blob (materialized in `raw/`, gets a source page) and pointer (an address to something living elsewhere, cited inline as a typed token, no source page by default).
 5. **Pointer vocabulary (MVP).** `commit:<sha>`, `file:<path>#Lstart-Lend`, `issue:<id>`, `pr:<num>`, `web:<url>`, and `conversation:<date>` (the last appears **only** on conversation-snapshot source pages as a provenance marker, never as a bare inline token on a topic page).
-6. **Typed-token stored form vs. clickable render form.** The stored citation is the parseable typed token `[commit:abc123]`. In prose the agent renders it as a clickable markdown link, e.g. `` [`abc123`](https://github.com/org/repo/commit/abc123) ``. `ws kb lint` does not parse or validate typed tokens in MVP.
+6. **Typed-token stored form vs. clickable render form.** The stored citation is the parseable typed token `[commit:abc123]`. In prose the agent renders it as a clickable markdown link, e.g. `` [`abc123`](https://github.com/org/repo/commit/abc123) ``. Typed tokens are not automatically validated in MVP — the agent verifies pointer validity during the lint pass.
 7. **Opt-in concept-keyed source pages for pointer clusters.** When a bundle of pointers needs narrative explanation, the agent writes `wiki/sources/src-<concept>-evidence.md` — version-controlled, stable semantic id (NOT date-keyed), tagged `external` where the page is a cluster of external pointers. Topic pages cite it as `[[src-<concept>-evidence]]` when the whole bundle is the evidence, or cite individual pointers inline when one backs a specific claim. There is **no** `raw/sources/external/` folder (that was rejected: it collides with `raw/`'s gitignore, loses claim-level provenance, and date-keys sources).
 8. **Conversation-snapshot resolution.** Conversational evidence → snapshot blob in `raw/snapshots/<date>-<topic>.md` (verbatim definition + paraphrased narrative, consent-gated) → source page `wiki/sources/src-conv-<date>-<topic>.md` → cited as `[[src-conv-...]]`. The bare `conversation:<date>` pointer lives only on that source page.
 9. **Consent gate scope.** The yes/no gate fires on (a) new-page creation and (b) contradictions to existing claims (the existing SCHEMA's Contradictions-section flow). Routine refinement edits to existing pages are ungated and logged in `log.md`.
 10. **Concept detection is agent-judged, not CLI-driven.** No `ws kb suggest` command. The harness, following SCHEMA instructions, notices a concept mentioned-without-a-page (or referenced-in-work-but-absent), gathers a definition, lists sources, and asks the human. The quality of this behavior is a function of how well `SCHEMA.md` is written — a doc-quality dependency, not a code dependency.
 11. **`ws kb init` is Tier-3 scaffolding.** Per the restructure ADR, knowledge-base seeds are user-owned after first write. Re-init is skip-by-default; `--reset <asset>` refreshes a single embedded asset explicitly.
 12. **Idempotency semantics.** On a workspace where `catalog/knowledge/wiki/index.md` already exists, `ws kb init` skips existing files, creates missing directories and missing seed files only. `ws kb init --reset <asset>` rewrites the named embedded asset from the binary (e.g. `--reset SCHEMA.md`).
-13. **Graph is implicit for MVP.** The graph is the emergent `[[wikilink]]` structure; no index store, no `ws kb graph` command in MVP. `ws kb graph` is the documented first evolution when `index.md`-linear reads stop scaling (a few hundred pages). `ws kb lint`'s orphan detection is the MVP's only graph-traversal code and seeds that future command.
-14. **`ws kb lint` MVP scope = orphans + broken `[[wikilinks]]` only.** No frontmatter validation, no pointer-staleness revalidation, no contradiction detection. These evolve later. Pointer staleness (a `file:` path that drifted) has no mechanical backstop in MVP — recorded as a known limitation.
+13. **Graph is implicit for MVP.** The graph is the emergent `[[wikilink]]` structure; no index store, no `ws kb graph` command in MVP. `ws kb graph` is the documented first evolution when `index.md`-linear reads stop scaling (a few hundred pages). The agent's orphan check in the Lint operation does today's graph traversal and would seed that future command.
+14. **Lint MVP scope = orphans + broken `[[wikilinks]]` only.** No frontmatter validation, no pointer-staleness revalidation, no contradiction detection. These evolve later. Pointer staleness (a `file:` path that drifted) has no mechanical backstop in MVP — recorded as a known limitation.
 
 ### Modules / interfaces
 
-- **New `ws-kb` crate** (module-level seam) exposing two pure operations:
+- **New `ws-kb` crate** (module-level seam) exposing one pure operation:
   - `scaffold(root: &Path, reset: Option<AssetId>) -> Result<ScaffoldReport>` — writes the embedded KB tree, skip-by-default, optional single-asset refresh. Returns which assets were written/skipped/refreshed.
-  - `lint(root: &Path) -> Result<Vec<LintFinding>>` — scans `wiki/**/*.md`, parses `[[wikilinks]]`, returns orphans + broken-link findings.
-- **`ws-cli`** wires `ws-kb` under a `ws kb` subcommand (`ws kb init [--reset <asset>]`, `ws kb lint`). The CLI is a thin wrapper over the two library functions.
+- **`ws-cli`** wires `ws-kb` under a `ws kb` subcommand (`ws kb init [--reset <asset>]`). The CLI is a thin wrapper over the library function.
 - **Embedded assets** live under the restructure ADR's canonical location (`crates/ws-cli/assets/catalog-knowledge/`) and are embedded via the restructure ADR's chosen mechanism (the `include_dir` crate, pending confirmation in the parent ADR's Q3). The embedded tree is the existing on-disk tree:
   ```
   catalog/knowledge/
@@ -152,13 +151,12 @@ source page** as a provenance marker — never as a bare inline token on a topic
 - Add a **"Both streams live here"** section to SCHEMA documenting that product and engineering knowledge coexist, distinguished by `stream`, cross-linked via `[[wikilinks]]`.
 - Add a **"Source types"** section to SCHEMA enumerating blob vs. pointer, the pointer vocabulary, the verbatim-definition/paraphrased-narrative rule, and the consent gate for conversational evidence.
 - Add a **"Concept capture"** operation to SCHEMA describing the agent-judged gap detection, draft-definition + sources list, optional human enrichment, and the yes/no gate invoking Ingest on consent.
-- Preserve the existing Ingest/Query/Update/Lint operations, noting that Ingest/Query/Update are agent-performed markdown edits and that the mechanical subset of Lint is delegated to `ws kb lint`.
+- Preserve the existing Ingest/Query/Update/Lint operations as agent-performed operations (markdown edits and agent-run checks) — there is no CLI command for any of them.
 
 ### API contracts
 
 - `ws kb init` exit 0 with a human-readable scaffold report (written/skipped/refreshed per asset); exit non-zero on filesystem error.
 - `ws kb init --reset <asset>`: unknown asset name → error listing valid asset names; known asset → refresh + report.
-- `ws kb lint`: exit 0 if no findings, exit non-zero (or 0 with warnings — to be confirmed at implementation) if findings exist. Output is a parseable report (findings with page path + finding type + severity + message), one per line, suitable for agent/CI consumption.
 - `[[wikilink]]` resolution rule: a link target resolves if the slug (filename without `.md`) exists anywhere under `wiki/` ignoring the category folder — i.e. `[[revenue]]` resolves to `wiki/topics/revenue.md` or `wiki/entities/revenue.md`. Broken = no page with that slug exists. Orphan = a wiki page whose slug is never the target of any `[[wikilink]]` across the wiki.
 
 ### Specific interactions
@@ -183,14 +181,10 @@ natural highest seam. The CLI wrapper is too thin to warrant its own tests beyon
    **skips** existing files (content unchanged); assert `--reset <asset>` rewrites exactly that
    asset and leaves others untouched; assert `--reset <unknown-asset>` errors with the list of
    valid asset names.
-2. **`ws-kb::lint` over TempDir fixture wikis** — assert orphans reported (a page with no inbound
-   links); assert broken links reported (a `[[wikilink]]` to a nonexistent slug); assert clean wiki
-   reports no findings; assert slug resolution is folder-agnostic (links resolve across
-   `topics/`/`entities/`/`sources/`/`synthesis/`).
 
 ### Which modules will be tested
 
-- `ws-kb` (new crate): `scaffold` and `lint` as above. This crate establishes the first real test
+- `ws-kb` (new crate): `scaffold` as above. This crate establishes the first real test
   pattern in the workspace.
 - `ws-cli`: smoke test only (the `ws kb` subcommand dispatches to the library without extra logic).
 
@@ -213,9 +207,9 @@ functions over a workspace root" in this codebase, though they are themselves un
 - **`ws kb ingest` / `query` / `update` / `list` / `status` / `suggest` commands** — explicitly
   rejected. These are SCHEMA-defined agent operations performed by editing markdown, not CLI
   commands.
-- **Pointer-staleness revalidation in `ws kb lint`** — deferred. `file:` paths that drift and
+- **Pointer-staleness revalidation in the Lint operation** — deferred. `file:` paths that drift and
   `commit:` SHAs that vanish are not mechanically checked in MVP. (Recorded as a known limitation.)
-- **Frontmatter validation in `ws kb lint`** — deferred. The `stream` field and other frontmatter
+- **Frontmatter validation in the Lint operation** — deferred. The `stream` field and other frontmatter
   are not schema-validated mechanically in MVP.
 - **Contradiction detection / stale-claim detection / missing-cross-reference detection** — the
   *judgment* subset of lint stays a SCHEMA-defined agent operation, not a CLI command, in MVP and
@@ -232,7 +226,7 @@ functions over a workspace root" in this codebase, though they are themselves un
 ### Known limitations accepted during design
 
 1. **Pointer staleness has no mechanical backstop in MVP.** A `file:src/foo.rs#L40-58` source whose
-   target moves or shifts rots silently until `ws kb lint` grows pointer-revalidation. This is an
+   target moves or shifts rots silently until the Lint operation grows pointer-revalidation. This is an
    accepted MVP tradeoff for a deliberately minimal lint. Revisit when engineering concepts with
    file-range pointers become common.
 2. **Agent query navigation is linear over `index.md`.** With no `ws kb graph` command, the agent
@@ -259,17 +253,17 @@ This feature is a concretization of Karpathy's LLM Wiki pattern, with two extens
 leaves open: (1) a **merged product+engineering stream** in a single wiki (the pattern is
 domain-agnostic; this feature commits to a two-stream single-wiki instantiation), and (2) a
 **hybrid provenance model** adding pointer sources to the pattern's blob-only "raw sources" layer.
-The `ws kb lint` command corresponds to the mechanical subset of the pattern's "Lint" operation;
-the judgment subset stays with the agent per the pattern's "the LLM does the grunt work" principle.
+The agent-run Lint operation (mechanical + judgment subsets) corresponds to the pattern's "Lint"
+operation, per the pattern's "the LLM does the grunt work" principle.
 
 ### Evolution roadmap (recorded, not built)
 
 1. `ws kb graph <subquery>` — reverse links, neighbors, shortest path, orphan listing. Reuses
    `lint`'s traversal. Triggered when `index.md`-linear reads stop scaling.
-2. Pointer-staleness revalidation in `ws kb lint` — re-validate `commit:` SHAs exist, `file:`
+2. Pointer-staleness revalidation in the Lint operation — re-validate `commit:` SHAs exist, `file:`
    paths still resolve, `issue:`/`pr:` IDs are retrievable. Triggered when engineering
    pointer-sourced concepts become common.
-3. Frontmatter schema validation in `ws kb lint` — enforce the `stream` field and reserved
+3. Frontmatter schema validation in the Lint operation — enforce the `stream` field and reserved
    frontmatter. Triggered when frontmatter drift causes agent confusion.
 4. Index store (FTS5/embeddings) — triggered only when the wiki reaches "past a few hundred pages"
   _scale, per the pattern and its community commenters.
