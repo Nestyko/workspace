@@ -202,21 +202,35 @@ fn inspect_repo_dir(dir: &Path, service_id: &str, baseline_commit: &str) -> Repo
     let mut unpushed_count = None;
 
     if dir.exists() {
+        // Best-effort status probes: git failure is expected (e.g. no upstream
+        // configured for a local branch) and the result is simply left blank.
+        // Silence stderr so git's `fatal:` diagnostics never leak into `ws tasks`
+        // output (agent context).
         if let Ok(b) = cmd("git", &["rev-parse", "--abbrev-ref", "HEAD"])
             .dir(dir)
+            .stderr_null()
             .read()
         {
             branch = b.trim().to_string();
         }
-        if let Ok(c) = cmd("git", &["rev-parse", "HEAD"]).dir(dir).read() {
+        if let Ok(c) = cmd("git", &["rev-parse", "HEAD"])
+            .dir(dir)
+            .stderr_null()
+            .read()
+        {
             current_commit = c.trim().to_string();
         }
-        if let Ok(status) = cmd("git", &["status", "--porcelain"]).dir(dir).read() {
+        if let Ok(status) = cmd("git", &["status", "--porcelain"])
+            .dir(dir)
+            .stderr_null()
+            .read()
+        {
             has_changes = !status.trim().is_empty();
         }
         // Count commits ahead of the upstream tracking branch (best-effort).
         if let Ok(n) = cmd("git", &["rev-list", "--count", "@{u}..HEAD"])
             .dir(dir)
+            .stderr_null()
             .read()
         {
             unpushed_count = n.trim().parse::<u64>().ok();

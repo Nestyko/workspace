@@ -384,8 +384,54 @@ fn status_reports_unticketed_workspace() {
 }
 
 // ==========================================
-// Full offline end-to-end: create → tasks → attach → add_task
+// Full offline end-to-end (git-backed): create → tasks → attach → add_task,
+// plus real-git-worktree status regressions
 // ==========================================
+
+/// A worktree on a branch with no upstream configured must not spray git
+/// `fatal:` diagnostics into stderr. `git rev-list --count @{u}..HEAD` fails
+/// loudly for local branches with no tracking ref, and that noise used to leak
+/// straight through into `ws tasks` output, clogging agent context.
+#[test]
+fn tasks_list_silences_git_upstream_noise() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    write_config(root);
+    write_workspace(
+        root,
+        "realtime-chat",
+        "realtime-chat",
+        None,
+        "Realtime Chat",
+        "A realtime chat agent for the web",
+        &["api"],
+    );
+
+    // A real worktree on a branch with no remote/upstream — the exact state
+    // where resolving `@{u}` fails.
+    let worktree = root
+        .join("workspaces")
+        .join("realtime-chat")
+        .join("repos")
+        .join("api");
+    std::fs::create_dir_all(&worktree).unwrap();
+    git_ok(&worktree, &["init", "-b", "feature-x"]);
+    write(&worktree, "hello.txt", "hello\n");
+    git_ok(&worktree, &["config", "user.email", "test@example.com"]);
+    git_ok(&worktree, &["config", "user.name", "Test User"]);
+    git_ok(&worktree, &["add", "."]);
+    git_ok(&worktree, &["commit", "-m", "initial commit"]);
+
+    let out = run_ok(root, &["tasks"]);
+    let s = stdout(&out);
+    assert!(s.contains("realtime-chat"), "row expected: {}", s);
+    let err = String::from_utf8_lossy(&out.stderr).into_owned();
+    assert!(
+        err.is_empty(),
+        "ws tasks must not leak git fatal diagnostics: {}",
+        err
+    );
+}
 
 #[test]
 fn create_attach_add_task_end_to_end() {
